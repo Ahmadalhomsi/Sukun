@@ -10,18 +10,69 @@ export interface CalculatedPrayerTimes {
 	isha: Date;
 }
 
+export type CalculationMethodName = 
+	| 'Turkey'
+	| 'MuslimWorldLeague'
+	| 'Egyptian'
+	| 'Karachi'
+	| 'UmmAlQura'
+	| 'Dubai'
+	| 'Qatar'
+	| 'Kuwait'
+	| 'MoonsightingCommittee'
+	| 'Singapore'
+	| 'NorthAmerica'
+	| 'Other';
+
 /**
  * Calculate prayer times for a given city and date using adhan-js
  */
 export function calculatePrayerTimes(
 	city: City,
-	date: Date = new Date()
+	date: Date = new Date(),
+	methodName: CalculationMethodName = 'Turkey'
 ): CalculatedPrayerTimes {
 	const coordinates = new Coordinates(city.latitude, city.longitude);
 	
-	// Use Muslim World League calculation method (method 3)
-	// You can change this based on user preference
-	const params = CalculationMethod.MuslimWorldLeague();
+	// Get calculation method based on name
+	let params;
+	switch (methodName) {
+		case 'Turkey':
+			params = CalculationMethod.Turkey();
+			break;
+		case 'MuslimWorldLeague':
+			params = CalculationMethod.MuslimWorldLeague();
+			break;
+		case 'Egyptian':
+			params = CalculationMethod.Egyptian();
+			break;
+		case 'Karachi':
+			params = CalculationMethod.Karachi();
+			break;
+		case 'UmmAlQura':
+			params = CalculationMethod.UmmAlQura();
+			break;
+		case 'Dubai':
+			params = CalculationMethod.Dubai();
+			break;
+		case 'Qatar':
+			params = CalculationMethod.Qatar();
+			break;
+		case 'Kuwait':
+			params = CalculationMethod.Kuwait();
+			break;
+		case 'MoonsightingCommittee':
+			params = CalculationMethod.MoonsightingCommittee();
+			break;
+		case 'Singapore':
+			params = CalculationMethod.Singapore();
+			break;
+		case 'NorthAmerica':
+			params = CalculationMethod.NorthAmerica();
+			break;
+		default:
+			params = CalculationMethod.Turkey();
+	}
 	
 	const prayerTimes = new PrayerTimes(coordinates, date, params);
 
