@@ -10,10 +10,10 @@ export function formatTime(time: string): string {
 	}
 }
 
-export function formatDate(date: string): string {
+export function formatDate(date: string, locale: string = 'en-US'): string {
 	try {
 		const d = new Date(date);
-		return d.toLocaleDateString('en-US', {
+		return d.toLocaleDateString(locale, {
 			weekday: 'long',
 			year: 'numeric',
 			month: 'long',
@@ -36,7 +36,7 @@ export function isTimeInPast(time: string): boolean {
 	}
 }
 
-export function getTimeUntil(time: string): string {
+export function getTimeUntil(time: string, lang: 'en' | 'tr' = 'en'): string {
 	try {
 		const now = new Date();
 		const [hours, minutes] = time.split(':').map(Number);
@@ -44,7 +44,7 @@ export function getTimeUntil(time: string): string {
 		prayerTime.setHours(hours, minutes, 0, 0);
 
 		if (prayerTime < now) {
-			return 'Passed';
+			return lang === 'tr' ? 'Geçti' : 'Passed';
 		}
 
 		const diff = prayerTime.getTime() - now.getTime();
@@ -52,9 +52,11 @@ export function getTimeUntil(time: string): string {
 		const minutesLeft = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
 		if (hoursLeft === 0) {
-			return `in ${minutesLeft}m`;
+			return lang === 'tr' ? `${minutesLeft} dk içinde` : `in ${minutesLeft}m`;
 		}
-		return `in ${hoursLeft}h ${minutesLeft}m`;
+		return lang === 'tr'
+			? `${hoursLeft} sa ${minutesLeft} dk içinde`
+			: `in ${hoursLeft}h ${minutesLeft}m`;
 	} catch {
 		return '';
 	}

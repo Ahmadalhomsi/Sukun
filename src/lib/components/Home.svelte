@@ -2,13 +2,16 @@
 	import { onMount } from 'svelte';
 	import { apiClient } from '$lib/api/client';
 	import type { PrayerTime } from '$lib/api/schema';
-	import { formatTime, getTimeUntil, isTimeInPast, getTodayDate } from '$lib/utils/time';
+	import { formatTime, getTimeUntil, isTimeInPast, getTodayDate, formatDate } from '$lib/utils/time';
 	import { isLoadingPrayers, errorMessage } from '$lib/stores';
 	import { t, currentLanguage, translatePrayerName } from '$lib/i18n';
 
 	let prayers = $state<PrayerTime[]>([]);
 	let nextPrayer = $state<PrayerTime | null>(null);
 	let currentTime = $state(new Date());
+	let preAlertEnabled = $state(false);
+	let alertTimeout: number | null = null;
+	let lastAlertPrayerName: string | null = null;
 
 	// Update time every second
 	$effect(() => {
@@ -17,6 +20,55 @@
 		}, 1000);
 		return () => clearInterval(interval);
 	});
+
+	function maybeNotify(prayer: PrayerTime | null | undefined) {
+		if (!prayer || !('Notification' in window)) return;
+		const body = `${translatePrayerName(prayer.name, $currentLanguage)} ${formatTime(prayer.time)} ${$currentLanguage === 'tr' ? 'öncesi 10 dk uyarı' : 'in 10 minutes'}`;
+		if (Notification.permission === 'granted') {
+			new Notification($t.nextPrayer, { body });
+		} else if (Notification.permission !== 'denied') {
+			Notification.requestPermission().then((permission) => {
+				if (permission === 'granted') {
+					new Notification($t.nextPrayer, { body });
+				}
+			});
+		}
+	}
+
+	function schedulePreAlert() {
+		if (alertTimeout) {
+			clearTimeout(alertTimeout);
+			alertTimeout = null;
+		}
+
+		if (!preAlertEnabled || !nextPrayer) return;
+
+		try {
+			const target = new Date();
+			const [h, m] = nextPrayer.time.split(':').map(Number);
+			target.setHours(h, m, 0, 0);
+			const diffMs = target.getTime() - Date.now() - 10 * 60 * 1000;
+
+			const prayer = nextPrayer;
+
+			if (diffMs <= 0) {
+				if (prayer && lastAlertPrayerName !== prayer.name) {
+					maybeNotify(prayer);
+					lastAlertPrayerName = prayer.name;
+				}
+				return;
+			}
+
+			alertTimeout = window.setTimeout(() => {
+				maybeNotify(prayer);
+				if (prayer) {
+					lastAlertPrayerName = prayer.name;
+				}
+			}, diffMs);
+		} catch (err) {
+			console.error('Failed to schedule pre-alert', err);
+		}
+	}
 
 	async function loadPrayers() {
 		try {
@@ -27,6 +79,7 @@
 			// Find next prayer
 			const upcoming = prayers.find((p) => !isTimeInPast(p.time));
 			nextPrayer = upcoming || null;
+			schedulePreAlert();
 		} catch (error) {
 			$errorMessage = error instanceof Error ? error.message : 'Failed to load prayers';
 			console.error('Error loading prayers:', error);
@@ -46,42 +99,45 @@
 		}
 	}
 
-	onMount(async () => {
-		await loadPrayers();
-		
-		// Auto-fetch prayers on first load if location is configured but no prayers exist
-		if (prayers.length === 0) {
-			try {
-				const settings = await apiClient.getAllSettings();
-				const citySettings = settings.find(s => s.key === 'city');
-				const countrySettings = settings.find(s => s.key === 'country');
-				
-				if (citySettings?.value && countrySettings?.value) {
-					console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
-					const today = getTodayDate();
-					await apiClient.fetchAndStorePrayerTimes(
-						citySettings.value,
-						countrySettings.value,
-						today
-					);
-					await loadPrayers();
-				} else {
-					console.log('Location not configured, skipping auto-fetch');
+	onMount(() => {
+		const init = async () => {
+			await loadPrayers();
+
+			// Auto-fetch prayers on first load if location is configured but no prayers exist
+			if (prayers.length === 0) {
+				try {
+					const settings = await apiClient.getAllSettings();
+					const citySettings = settings.find((s) => s.key === 'city');
+					const countrySettings = settings.find((s) => s.key === 'country');
+					const preAlertSetting = settings.find((s) => s.key === 'pre_prayer_alert_enabled');
+					preAlertEnabled = preAlertSetting?.value === 'true';
+
+					if (citySettings?.value && countrySettings?.value) {
+						console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
+						const today = getTodayDate();
+						await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+						await loadPrayers();
+					} else {
+						console.log('Location not configured, skipping auto-fetch');
+					}
+				} catch (error) {
+					console.error('Auto-fetch failed:', error);
+					$errorMessage = 'Auto-fetch failed. Please configure location in Settings.';
 				}
-			} catch (error) {
-				console.error('Auto-fetch failed:', error);
-				$errorMessage = 'Auto-fetch failed. Please configure location in Settings.';
 			}
-		}
-		
+		};
+
+		init();
+
 		// Listen for prayer updates from Settings page
 		const handlePrayersUpdated = () => {
 			loadPrayers();
 		};
 		window.addEventListener('prayers-updated', handlePrayersUpdated);
-		
+
 		return () => {
 			window.removeEventListener('prayers-updated', handlePrayersUpdated);
+			if (alertTimeout) clearTimeout(alertTimeout);
 		};
 	});
 </script>
@@ -92,12 +148,7 @@
 			{$t.prayerTimes}
 		</h1>
 		<p class="text-gray-600 dark:text-gray-400">
-			{new Date().toLocaleDateString('en-US', {
-				weekday: 'long',
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric'
-			})}
+			{formatDate(new Date().toISOString(), $currentLanguage === 'tr' ? 'tr-TR' : 'en-US')}
 		</p>
 	</div>
 
@@ -123,7 +174,7 @@
 				</div>
 				<div class="text-right">
 					<p class="text-sm opacity-90 mb-1">{$t.timeRemaining}</p>
-					<p class="text-4xl font-bold">{getTimeUntil(nextPrayer.time)}</p>
+					<p class="text-4xl font-bold">{getTimeUntil(nextPrayer.time, $currentLanguage)}</p>
 				</div>
 			</div>
 		</div>
@@ -181,7 +232,7 @@
 								<p class="text-2xl font-bold">{formatTime(prayer.time)}</p>
 								{#if !isTimeInPast(prayer.time)}
 									<p class="text-sm text-primary-600 dark:text-primary-400">
-										{getTimeUntil(prayer.time)}
+										{getTimeUntil(prayer.time, $currentLanguage)}
 									</p>
 								{/if}
 							</div>

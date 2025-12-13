@@ -33,10 +33,25 @@
 </script>
 
 {#if show}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-		onclick={() => show = false}>
-		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col"
-			onclick={(e) => e.stopPropagation()}>
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+		role="button"
+		tabindex="0"
+		onclick={() => (show = false)}
+		onkeydown={(e) => {
+			if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+				show = false;
+			}
+		}}
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col"
+			role="dialog"
+			aria-modal="true"
+			tabindex="-1"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+		>
 			<!-- Header -->
 			<div class="p-6 border-b border-gray-200 dark:border-gray-700">
 				<div class="flex items-center justify-between">
@@ -44,8 +59,9 @@
 						{$t.selectLocation}
 					</h2>
 					<button
-						onclick={() => show = false}
+						onclick={() => (show = false)}
 						class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+						aria-label="Close dialog"
 					>
 						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -58,10 +74,11 @@
 			<div class="p-6 flex-1 overflow-y-auto">
 				<!-- Country Selection -->
 				<div class="mb-4">
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					<label for="country-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 						{$t.country}
 					</label>
 					<select
+						id="country-select"
 						bind:value={selectedCountryData.name}
 						onchange={(e) => handleCountryChange(e.currentTarget.value)}
 						class="input-field"
@@ -74,10 +91,11 @@
 				
 				<!-- City Search -->
 				<div class="mb-4">
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					<label for="city-search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 						{$t.city}
 					</label>
 					<input
+						id="city-search"
 						type="text"
 						bind:value={searchCity}
 						placeholder="Search cities..."
@@ -90,8 +108,8 @@
 					{#each filteredCities as city}
 						<button
 							onclick={() => handleCityClick(city.name)}
-						class="p-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-primary-50 hover:border-primary-500 transition-colors"
-						class:bg-primary-100={selectedCity === city.name}
+							class="p-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-primary-50 hover:border-primary-500 transition-colors"
+							class:bg-primary-100={selectedCity === city.name}
 							class:border-primary-500={selectedCity === city.name}
 						>
 							<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -109,7 +127,6 @@
 	.input-field:focus {
 		outline: none;
 		border-color: rgb(var(--color-primary-500));
-		ring: 2px;
-		ring-color: rgb(var(--color-primary-500) / 0.2);
+		box-shadow: 0 0 0 3px rgb(var(--color-primary-500) / 0.2);
 	}
 </style>

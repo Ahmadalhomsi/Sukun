@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, RunEvent, State,
+    AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder,
 };
 
 static EXIT_GUARD: OnceLock<AtomicBool> = OnceLock::new();
@@ -194,6 +194,7 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show" => {
+                ensure_main_window(app);
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
@@ -218,6 +219,7 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
             } = event
             {
                 let app = tray.app_handle();
+                ensure_main_window(&app);
                 if let Some(window) = app.get_webview_window("main") {
                     if window.is_visible().unwrap_or(false) {
                         let _ = window.hide();
@@ -237,6 +239,19 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
     let _tray = tray_builder.build(app)?;
 
     Ok(())
+}
+
+fn ensure_main_window(app: &AppHandle) {
+    if app.get_webview_window("main").is_some() {
+        return;
+    }
+
+    let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("Sukun - Prayer Times Manager")
+            .inner_size(900.0, 700.0)
+        .resizable(true)
+        .center()
+        .build();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

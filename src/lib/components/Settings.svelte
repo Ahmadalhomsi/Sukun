@@ -14,6 +14,7 @@
 	let currentLongitude = 0;
 	let autoMute = true;
 	let notificationsEnabled = true;
+	let preAlertEnabled = true;
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
 	let selectedLang: Language = 'tr';
 	let timeAdjustment = 0;
@@ -53,6 +54,9 @@
 						break;
 					case 'notifications_enabled':
 						notificationsEnabled = setting.value === 'true';
+						break;
+					case 'pre_prayer_alert_enabled':
+						preAlertEnabled = setting.value !== 'false';
 						break;
 					case 'theme_mode':
 						selectedTheme = setting.value as 'light' | 'dark' | 'system';
@@ -145,6 +149,7 @@
 			await apiClient.setSetting('longitude', currentLongitude.toString());
 			await apiClient.setSetting('auto_mute', autoMute.toString());
 			await apiClient.setSetting('notifications_enabled', notificationsEnabled.toString());
+			await apiClient.setSetting('pre_prayer_alert_enabled', preAlertEnabled.toString());
 			await apiClient.setSetting('theme_mode', selectedTheme);
 			await apiClient.setSetting('time_adjustment', timeAdjustment.toString());
 			await apiClient.setSetting('unmute_after_minutes', unmuteAfterMinutes.toString());
@@ -226,7 +231,6 @@
 	bind:show={showLocationDialog}
 	bind:selectedCity={city}
 	bind:selectedCountry={country}
-	{handleLocationSelect}
 	onSelect={handleLocationSelect}
 />
 
@@ -398,6 +402,17 @@
 					/>
 					<span class="text-gray-700 dark:text-gray-300">
 						{$t.showNotifications}
+					</span>
+				</label>
+				<label class="flex items-center space-x-3 cursor-pointer">
+					<input
+						type="checkbox"
+						bind:checked={preAlertEnabled}
+						disabled={!notificationsEnabled}
+						class="w-5 h-5 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
+					/>
+					<span class="text-gray-700 dark:text-gray-300">
+						{$currentLanguage === 'tr' ? 'Namazdan 10 dk önce uyar' : 'Alert 10 minutes before prayer'}
 					</span>
 				</label>
 			</div>
