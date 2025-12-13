@@ -58,19 +58,24 @@ export async function getLocationFromIP(): Promise<{
 	country: string;
 }> {
 	try {
-		const response = await fetch('https://ipapi.co/json/');
+		// Use ip-api.com which doesn't require API key and has no CORS issues
+		const response = await fetch('http://ip-api.com/json/');
+		if (!response.ok) {
+			throw new Error('Failed to fetch location');
+		}
+		
 		const data = await response.json();
 		
-		if (data.latitude && data.longitude) {
+		if (data.status === 'success' && data.lat && data.lon) {
 			return {
-				latitude: data.latitude,
-				longitude: data.longitude,
+				latitude: data.lat,
+				longitude: data.lon,
 				city: data.city || 'Unknown',
-				country: data.country_name || 'Unknown'
+				country: data.country || 'Unknown'
 			};
 		}
 		
-		throw new Error('Failed to get location from IP');
+		throw new Error(data.message || 'Failed to get location from IP');
 	} catch (error) {
 		throw new Error('IP geolocation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
 	}
