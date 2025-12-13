@@ -25,11 +25,11 @@ struct AppState {
 async fn fetch_and_store_prayer_times(
     state: State<'_, AppState>,
     api_key: String,
-    latitude: f64,
-    longitude: f64,
+    city: String,
+    country: String,
     date: String,
 ) -> Result<Vec<PrayerTime>, String> {
-    let response = api::fetch_prayer_times(&api_key, latitude, longitude, &date)
+    let response = api::fetch_prayer_times(&api_key, &city, &country, &date)
         .await
         .map_err(|e| e.to_string())?;
 

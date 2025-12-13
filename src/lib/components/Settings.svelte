@@ -4,9 +4,8 @@
 	import { appConfig, themeMode } from '$lib/stores';
 	import { getTodayDate } from '$lib/utils/time';
 
-	let apiKey = '';
-	let latitude = 0;
-	let longitude = 0;
+	let city = 'Istanbul';
+	let country = 'Turkey';
 	let autoMute = true;
 	let notificationsEnabled = true;
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
@@ -20,14 +19,11 @@
 			const settings = await apiClient.getAllSettings();
 			settings.forEach((setting: any) => {
 				switch (setting.key) {
-					case 'api_key':
-						apiKey = setting.value;
+					case 'city':
+						city = setting.value || 'Istanbul';
 						break;
-					case 'latitude':
-						latitude = parseFloat(setting.value);
-						break;
-					case 'longitude':
-						longitude = parseFloat(setting.value);
+					case 'country':
+						country = setting.value || 'Turkey';
 						break;
 					case 'auto_mute':
 						autoMute = setting.value === 'true';
@@ -51,18 +47,16 @@
 			saveMessage = '';
 
 			// Save to backend
-			await apiClient.setSetting('api_key', apiKey);
-			await apiClient.setSetting('latitude', latitude.toString());
-			await apiClient.setSetting('longitude', longitude.toString());
+			await apiClient.setSetting('city', city);
+			await apiClient.setSetting('country', country);
 			await apiClient.setSetting('auto_mute', autoMute.toString());
 			await apiClient.setSetting('notifications_enabled', notificationsEnabled.toString());
 			await apiClient.setSetting('theme_mode', selectedTheme);
 
 			// Update local stores
 			$appConfig = {
-				apiKey,
-				latitude,
-				longitude,
+				city,
+				country,
 				autoMute,
 				notificationsEnabled,
 				themeMode: selectedTheme
@@ -85,18 +79,18 @@
 			isSaving = true;
 			saveMessage = '';
 
-			if (!apiKey || !latitude || !longitude) {
-				saveMessage = 'Please fill in API key and location first';
+			if (!city || !country) {
+				saveMessage = 'Lütfen önce şehir ve ülke bilgilerini girin';
 				return;
 			}
 
 			const today = getTodayDate();
-			await apiClient.fetchAndStorePrayerTimes(apiKey, latitude, longitude, today);
+			await apiClient.fetchAndStorePrayerTimes(city, country, today);
 			
-			saveMessage = 'Prayer times fetched successfully!';
+saveMessage = 'Namaz vakitleri başarıyla alındı!';
 			setTimeout(() => (saveMessage = ''), 3000);
 		} catch (error) {
-			saveMessage = 'Failed to fetch prayer times';
+			saveMessage = 'Namaz vakitleri alınamadı';
 			console.error('Error fetching prayers:', error);
 		} finally {
 			isSaving = false;
@@ -118,88 +112,65 @@
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-3xl">
-	<h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-8">Settings</h1>
+	<h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-8">Ayarlar</h1>
 
 	{#if saveMessage}
 		<div
 			class="mb-6 px-4 py-3 rounded-lg"
-			class:bg-green-100={saveMessage.includes('success')}
-			class:text-green-700={saveMessage.includes('success')}
-			class:dark:bg-green-900={saveMessage.includes('success')}
-			class:dark:text-green-200={saveMessage.includes('success')}
-			class:bg-red-100={!saveMessage.includes('success')}
-			class:text-red-700={!saveMessage.includes('success')}
-			class:dark:bg-red-900={!saveMessage.includes('success')}
-			class:dark:text-red-200={!saveMessage.includes('success')}
+			class:bg-green-100={saveMessage.includes('başarıyla')}
+			class:text-green-700={saveMessage.includes('başarıyla')}
+			class:dark:bg-green-900={saveMessage.includes('başarıyla')}
+			class:dark:text-green-200={saveMessage.includes('başarıyla')}
+			class:bg-red-100={!saveMessage.includes('başarıyla')}
+			class:text-red-700={!saveMessage.includes('başarıyla')}
+			class:dark:bg-red-900={!saveMessage.includes('başarıyla')}
+			class:dark:text-red-200={!saveMessage.includes('başarıyla')}
 		>
 			{saveMessage}
 		</div>
 	{/if}
 
 	<div class="space-y-6">
-		<!-- API Configuration -->
+		<!-- Konum Ayarları -->
 		<div class="card">
 			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
-				API Configuration
-			</h2>
-			<div class="space-y-4">
-				<div>
-					<label for="apiKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						API Key
-					</label>
-					<input
-						id="apiKey"
-						type="password"
-						bind:value={apiKey}
-						placeholder="Enter your prayer times API key"
-						class="input-field"
-					/>
-					<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-						API key will be provided - currently using placeholder
-					</p>
-				</div>
-			</div>
-		</div>
-
-		<!-- Location Settings -->
-		<div class="card">
-			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
-				Location
+				Konum
 			</h2>
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label for="latitude" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						Latitude
+					<label for="city" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Şehir
 					</label>
 					<input
-						id="latitude"
-						type="number"
-						step="0.000001"
-						bind:value={latitude}
-						placeholder="e.g., 40.7128"
+						id="city"
+						type="text"
+						bind:value={city}
+						placeholder="Örn: Istanbul"
 						class="input-field"
 					/>
 				</div>
 				<div>
-					<label for="longitude" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						Longitude
+					<label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Ülke
 					</label>
 					<input
-						id="longitude"
-						type="number"
-						step="0.000001"
-						bind:value={longitude}
-						placeholder="e.g., -74.0060"
+						id="country"
+						type="text"
+						bind:value={country}
+						placeholder="Örn: Turkey"
 						class="input-field"
 					/>
 				</div>
 			</div>
+			<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+				Aladhan API'sini kullanıyoruz - API anahtarı gerekmez
+			</p>
 		</div>
 
-		<!-- Audio Behavior -->
+		<!-- Ses Davranışı -->
 		<div class="card">
 			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
-				Audio Behavior
+				Ses Davranışı
 			</h2>
 			<div class="space-y-4">
 				<label class="flex items-center space-x-3 cursor-pointer">
@@ -209,16 +180,16 @@
 						class="w-5 h-5 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
 					/>
 					<span class="text-gray-700 dark:text-gray-300">
-						Automatically mute system audio at prayer time
+						Namaz vaktinde sistem sesini otomatik kapat
 					</span>
 				</label>
 			</div>
 		</div>
 
-		<!-- Notifications -->
+		<!-- Bildirimler -->
 		<div class="card">
 			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
-				Notifications
+				Bildirimler
 			</h2>
 			<div class="space-y-4">
 				<label class="flex items-center space-x-3 cursor-pointer">
@@ -228,16 +199,16 @@
 						class="w-5 h-5 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
 					/>
 					<span class="text-gray-700 dark:text-gray-300">
-						Show notifications for prayer times
+						Namaz vakitleri için bildirim göster
 					</span>
 				</label>
 			</div>
 		</div>
 
-		<!-- Theme -->
+		<!-- Tema -->
 		<div class="card">
 			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
-				Theme
+				Tema
 			</h2>
 			<div class="space-y-2">
 				<label class="flex items-center space-x-3 cursor-pointer">
@@ -247,7 +218,7 @@
 						value="light"
 						class="w-4 h-4 text-primary-500"
 					/>
-					<span class="text-gray-700 dark:text-gray-300">Light</span>
+					<span class="text-gray-700 dark:text-gray-300">Açık</span>
 				</label>
 				<label class="flex items-center space-x-3 cursor-pointer">
 					<input
@@ -256,7 +227,7 @@
 						value="dark"
 						class="w-4 h-4 text-primary-500"
 					/>
-					<span class="text-gray-700 dark:text-gray-300">Dark</span>
+					<span class="text-gray-700 dark:text-gray-300">Koyu</span>
 				</label>
 				<label class="flex items-center space-x-3 cursor-pointer">
 					<input
@@ -265,26 +236,26 @@
 						value="system"
 						class="w-4 h-4 text-primary-500"
 					/>
-					<span class="text-gray-700 dark:text-gray-300">System</span>
+					<span class="text-gray-700 dark:text-gray-300">Sistem</span>
 				</label>
 			</div>
 		</div>
 
-		<!-- Action Buttons -->
+		<!-- İşlem Düğmeleri -->
 		<div class="flex space-x-4">
 			<button
 				onclick={saveSettings}
 				disabled={isSaving}
 				class="btn-primary flex-1"
 			>
-				{isSaving ? 'Saving...' : 'Save Settings'}
+				{isSaving ? 'Kaydediliyor...' : 'Ayarları Kaydet'}
 			</button>
 			<button
 				onclick={fetchPrayersNow}
 				disabled={isSaving}
 				class="btn-outline flex-1"
 			>
-				Fetch Prayer Times Now
+				Namaz Vakitlerini Şimdi Al
 			</button>
 		</div>
 	</div>

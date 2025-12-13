@@ -53,10 +53,10 @@
 <div class="container mx-auto px-4 py-8 max-w-4xl">
 	<div class="mb-8">
 		<h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-			Prayer Times
+			Namaz Vakitleri
 		</h1>
 		<p class="text-gray-600 dark:text-gray-400">
-			{new Date().toLocaleDateString('en-US', {
+			{new Date().toLocaleDateString('tr-TR', {
 				weekday: 'long',
 				year: 'numeric',
 				month: 'long',
@@ -67,7 +67,7 @@
 
 	{#if $errorMessage}
 		<div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded-lg mb-6">
-			<p class="font-medium">Error</p>
+			<p class="font-medium">Hata</p>
 			<p class="text-sm">{$errorMessage}</p>
 		</div>
 	{/if}
@@ -77,26 +77,26 @@
 			<div class="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent"></div>
 		</div>
 	{:else if nextPrayer}
-		<!-- Next Prayer Card -->
+		<!-- Sonraki Namaz Kartı -->
 		<div class="prayer-card mb-8 animate-fade-in animate-pulse-glow">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-sm opacity-90 mb-1">Next Prayer</p>
+					<p class="text-sm opacity-90 mb-1">Sonraki Namaz</p>
 					<h2 class="text-3xl font-bold mb-2">{nextPrayer.name}</h2>
 					<p class="text-xl opacity-95">{formatTime(nextPrayer.time)}</p>
 				</div>
 				<div class="text-right">
-					<p class="text-sm opacity-90 mb-1">Time Remaining</p>
+					<p class="text-sm opacity-90 mb-1">Kalan Süre</p>
 					<p class="text-4xl font-bold">{getTimeUntil(nextPrayer.time)}</p>
 				</div>
 			</div>
 		</div>
 	{/if}
 
-	<!-- All Prayers List -->
+	<!-- Tüm Namazlar Listesi -->
 	<div class="card mb-6">
 		<div class="flex items-center justify-between mb-4">
-			<h3 class="text-2xl font-semibold text-gray-800 dark:text-white">Today's Schedule</h3>
+			<h3 class="text-2xl font-semibold text-gray-800 dark:text-white">Bugünkü Program</h3>
 			<button
 				onclick={refreshPrayers}
 				class="btn-secondary text-sm"
@@ -105,7 +105,7 @@
 				<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 				</svg>
-				Refresh
+				Yenile
 			</button>
 		</div>
 
@@ -114,9 +114,9 @@
 				<svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
-				<p class="text-gray-600 dark:text-gray-400 mb-4">No prayer times available</p>
+				<p class="text-gray-600 dark:text-gray-400 mb-4">Namaz vakti bilgisi mevcut değil</p>
 				<p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-					Configure your location in Settings to fetch prayer times
+					Namaz vakitlerini almak için Ayarlar'dan konumunuzu yapılandırın
 				</p>
 			</div>
 		{:else}
@@ -137,7 +137,7 @@
 								<div>
 									<h4 class="text-lg font-semibold">{prayer.name}</h4>
 									<p class="text-sm text-gray-500 dark:text-gray-400">
-										{isTimeInPast(prayer.time) ? 'Completed' : 'Upcoming'}
+										{isTimeInPast(prayer.time) ? 'Tamamlandı' : 'Yaklaşıyor'}
 									</p>
 								</div>
 							</div>
@@ -156,7 +156,7 @@
 		{/if}
 	</div>
 
-	<!-- Quick Actions -->
+	<!-- Hızlı İşlemler -->
 	<div class="grid grid-cols-2 gap-4">
 		<button
 			onclick={() => apiClient.muteAudioNow()}
@@ -166,7 +166,7 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
 			</svg>
-			Mute Now
+			Şimdi Sessize Al
 		</button>
 		<button
 			onclick={() => apiClient.unmuteAudioNow()}
@@ -175,7 +175,7 @@
 			<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
 			</svg>
-			Unmute
+			Sesi Aç
 		</button>
 	</div>
 </div>
