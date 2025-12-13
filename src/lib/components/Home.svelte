@@ -11,6 +11,9 @@
 	let currentTime = $state(new Date());
 	let preAlertEnabled = $state(false);
 	let preAlertMinutes = $state(10);
+	let preAlertMode = $state<'notification' | 'sound'>('notification');
+	let notificationsEnabled = $state(true);
+	let alertSound: HTMLAudioElement | null = null;
 	let alertTimeout: number | null = null;
 	let lastAlertPrayerName: string | null = null;
 
@@ -22,9 +25,33 @@
 		return () => clearInterval(interval);
 	});
 
-	function maybeNotify(prayer: PrayerTime | null | undefined) {
-		if (!prayer || !('Notification' in window)) return;
-		const body = `${translatePrayerName(prayer.name, $currentLanguage)} ${formatTime(prayer.time)} ${$currentLanguage === 'tr' ? 'öncesi 10 dk uyarı' : 'in 10 minutes'}`;
+	function playAlertSound() {
+		try {
+			if (!alertSound) {
+				alertSound = new Audio('/Smart_UI_Notification_Stylized_Calm_19_Menu_UI_Indie_Chill.wav');
+			}
+			alertSound.currentTime = 0;
+			alertSound.play().catch((err) => console.error('Pre-alert sound failed', err));
+		} catch (err) {
+			console.error('Pre-alert sound error', err);
+		}
+	}
+
+	function notifyOrSound(prayer: PrayerTime | null | undefined) {
+		if (!prayer) return;
+
+		if (preAlertMode === 'sound') {
+			playAlertSound();
+			return;
+		}
+
+		if (!notificationsEnabled) {
+			console.warn('Notifications disabled; pre-alert skipped');
+			return;
+		}
+
+		if (!('Notification' in window)) return;
+		const body = `${translatePrayerName(prayer.name, $currentLanguage)} ${formatTime(prayer.time)} ${$currentLanguage === 'tr' ? `${preAlertMinutes} dk önce uyarı` : `in ${preAlertMinutes} minutes`}`;
 		if (Notification.permission === 'granted') {
 			new Notification($t.nextPrayer, { body });
 		} else if (Notification.permission !== 'denied') {
@@ -55,14 +82,14 @@
 
 			if (diffMs <= 0) {
 				if (prayer && lastAlertPrayerName !== prayer.name) {
-					maybeNotify(prayer);
+					notifyOrSound(prayer);
 					lastAlertPrayerName = prayer.name;
 				}
 				return;
 			}
 
 			alertTimeout = window.setTimeout(() => {
-				maybeNotify(prayer);
+				notifyOrSound(prayer);
 				if (prayer) {
 					lastAlertPrayerName = prayer.name;
 				}
@@ -109,11 +136,15 @@
 				const countrySettings = settings.find((s) => s.key === 'country');
 				const preAlertSetting = settings.find((s) => s.key === 'pre_prayer_alert_enabled');
 				const preAlertMinutesSetting = settings.find((s) => s.key === 'pre_prayer_alert_minutes');
+				const preAlertModeSetting = settings.find((s) => s.key === 'pre_prayer_alert_mode');
+				const notificationsEnabledSetting = settings.find((s) => s.key === 'notifications_enabled');
 
 				preAlertEnabled = preAlertSetting?.value !== 'false';
 				preAlertMinutes = preAlertMinutesSetting?.value
 					? parseInt(preAlertMinutesSetting.value, 10) || 10
 					: 10;
+				preAlertMode = preAlertModeSetting?.value === 'sound' ? 'sound' : 'notification';
+				notificationsEnabled = notificationsEnabledSetting?.value !== 'false';
 
 				await loadPrayers();
 

@@ -16,6 +16,7 @@
 	let notificationsEnabled = true;
 	let preAlertEnabled = true;
 	let preAlertMinutes = 10;
+	let preAlertMode: 'notification' | 'sound' = 'notification';
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
 	let selectedLang: Language = 'tr';
 	let timeAdjustment = 0;
@@ -61,6 +62,9 @@
 						break;
 					case 'pre_prayer_alert_minutes':
 						preAlertMinutes = parseInt(setting.value) || 10;
+						break;
+					case 'pre_prayer_alert_mode':
+						preAlertMode = setting.value === 'sound' ? 'sound' : 'notification';
 						break;
 					case 'theme_mode':
 						selectedTheme = setting.value as 'light' | 'dark' | 'system';
@@ -155,6 +159,7 @@
 			await apiClient.setSetting('notifications_enabled', notificationsEnabled.toString());
 			await apiClient.setSetting('pre_prayer_alert_enabled', preAlertEnabled.toString());
 			await apiClient.setSetting('pre_prayer_alert_minutes', preAlertMinutes.toString());
+			await apiClient.setSetting('pre_prayer_alert_mode', preAlertMode);
 			await apiClient.setSetting('theme_mode', selectedTheme);
 			await apiClient.setSetting('time_adjustment', timeAdjustment.toString());
 			await apiClient.setSetting('unmute_after_minutes', unmuteAfterMinutes.toString());
@@ -223,6 +228,38 @@
 			document.documentElement.classList.add('dark');
 		} else {
 			document.documentElement.classList.remove('dark');
+		}
+	}
+
+	function playAlertSoundPreview() {
+		try {
+			const audio = new Audio('/Smart_UI_Notification_Stylized_Calm_19_Menu_UI_Indie_Chill.wav');
+			audio.currentTime = 0;
+			audio.play().catch((err) => console.error('Preview sound failed', err));
+		} catch (err) {
+			console.error('Preview sound error', err);
+		}
+	}
+
+	async function testPreAlert() {
+		if (preAlertMode === 'sound') {
+			playAlertSoundPreview();
+			return;
+		}
+
+		if (!('Notification' in window)) {
+			console.warn('Notifications not supported');
+			return;
+		}
+
+		const body = $currentLanguage === 'tr' ? 'Test bildirimi' : 'Test notification';
+		if (Notification.permission === 'granted') {
+			new Notification($t.nextPrayer, { body });
+		} else {
+			const permission = await Notification.requestPermission();
+			if (permission === 'granted') {
+				new Notification($t.nextPrayer, { body });
+			}
 		}
 	}
 
@@ -413,29 +450,63 @@
 					<input
 						type="checkbox"
 						bind:checked={preAlertEnabled}
-						disabled={!notificationsEnabled}
+						disabled={!notificationsEnabled && preAlertMode === 'notification'}
 						class="w-5 h-5 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
 					/>
 					<span class="text-gray-700 dark:text-gray-300">
 						{$currentLanguage === 'tr' ? `Namazdan ${preAlertMinutes} dk önce uyar` : `Alert ${preAlertMinutes} minutes before prayer`}
 					</span>
 				</label>
-				{#if preAlertEnabled && notificationsEnabled}
-					<div class="ml-8 max-w-xs">
-						<label for="preAlertMinutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-							{$currentLanguage === 'tr' ? 'Uyarı dakikası' : 'Alert minutes before'}
-						</label>
-						<input
-							id="preAlertMinutes"
-							type="number"
-							min="1"
-							max="120"
-							bind:value={preAlertMinutes}
-							class="input-field"
-						/>
-						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-							{$currentLanguage === 'tr' ? 'Namazdan kaç dakika önce bildirim gösterilsin' : 'How many minutes before prayer to notify'}
-						</p>
+				{#if preAlertEnabled}
+					<div class="ml-8 space-y-3">
+						<div class="max-w-xs">
+							<label for="preAlertMinutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								{$currentLanguage === 'tr' ? 'Uyarı dakikası' : 'Alert minutes before'}
+							</label>
+							<input
+								id="preAlertMinutes"
+								type="number"
+								min="1"
+								max="120"
+								bind:value={preAlertMinutes}
+								class="input-field"
+							/>
+							<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								{$currentLanguage === 'tr' ? 'Namazdan kaç dakika önce bildirim gösterilsin' : 'How many minutes before prayer to notify'}
+							</p>
+						</div>
+
+						<div>
+							<p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{$currentLanguage === 'tr' ? 'Uyarı türü' : 'Alert type'}</p>
+							<div class="space-y-2">
+								<label class="flex items-center space-x-3 cursor-pointer">
+									<input
+										type="radio"
+										bind:group={preAlertMode}
+										value="notification"
+										class="w-4 h-4 text-primary-500"
+									/>
+									<span class="text-gray-700 dark:text-gray-300">
+										{$currentLanguage === 'tr' ? 'Windows bildirimi' : 'Windows notification'}
+									</span>
+								</label>
+								<label class="flex items-center space-x-3 cursor-pointer">
+									<input
+										type="radio"
+										bind:group={preAlertMode}
+										value="sound"
+										class="w-4 h-4 text-primary-500"
+									/>
+									<span class="text-gray-700 dark:text-gray-300">
+										{$currentLanguage === 'tr' ? 'Sesli uyarı' : 'Sound alert'}
+									</span>
+								</label>
+							</div>
+						</div>
+
+						<button class="btn-secondary text-sm" onclick={testPreAlert}>
+							{$currentLanguage === 'tr' ? 'Test et' : 'Test alert'}
+						</button>
 					</div>
 				{/if}
 			</div>
