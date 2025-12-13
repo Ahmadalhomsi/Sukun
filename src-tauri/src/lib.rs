@@ -19,7 +19,7 @@ use tauri::{
     AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder,
 };
 
-static EXIT_GUARD: OnceLock<AtomicBool> = OnceLock::new();
+static ALLOW_EXIT: OnceLock<AtomicBool> = OnceLock::new();
 
 struct AppState {
     db: Arc<Database>,
@@ -206,7 +206,9 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
                 println!("Audio muted from tray");
             }
             "quit" => {
-                // Ask Tauri to stop the event loop and exit cleanly
+                // Allow the event loop to exit fully
+                let allow = ALLOW_EXIT.get_or_init(|| AtomicBool::new(false));
+                allow.store(true, Ordering::SeqCst);
                 app.exit(0);
             }
             _ => {}
@@ -219,9 +221,13 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
             } = event
             {
                 let app = tray.app_handle();
-                ensure_main_window(&app);
+                let created = ensure_main_window(&app);
                 if let Some(window) = app.get_webview_window("main") {
-                    if window.is_visible().unwrap_or(false) {
+                    if created {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        let _ = window.unminimize();
+                    } else if window.is_visible().unwrap_or(false) {
                         let _ = window.hide();
                     } else {
                         let _ = window.show();
@@ -241,17 +247,19 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn ensure_main_window(app: &AppHandle) {
+fn ensure_main_window(app: &AppHandle) -> bool {
     if app.get_webview_window("main").is_some() {
-        return;
+        return false;
     }
 
     let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Sukun - Prayer Times Manager")
-            .inner_size(900.0, 700.0)
+        .inner_size(900.0, 700.0)
         .resizable(true)
         .center()
         .build();
+
+    true
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -311,13 +319,13 @@ pub fn run() {
 
     app.run(|app, event| {
         if let RunEvent::ExitRequested { api, .. } = event {
-            // Keep the event loop alive and tray running, but destroy all webviews
-            api.prevent_exit();
-
-            let guard = EXIT_GUARD.get_or_init(|| AtomicBool::new(false));
-            if guard.swap(true, Ordering::SeqCst) {
+            let allow = ALLOW_EXIT.get_or_init(|| AtomicBool::new(false));
+            if allow.load(Ordering::SeqCst) {
                 return;
             }
+
+            // Keep the event loop alive and tray running, but destroy all webviews
+            api.prevent_exit();
 
             for (_, window) in app.webview_windows() {
                 let _ = window.destroy();
