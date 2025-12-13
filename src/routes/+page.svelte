@@ -95,7 +95,7 @@
 		<!-- Footer -->
 		<div class="mt-auto p-6 border-t border-gray-200 dark:border-gray-700">
 			<p class="text-xs text-gray-500 dark:text-gray-400 text-center">
-				v0.1.0 | Ahmet Alhomsi tarafından geliştirildi
+				v1.0.0
 			</p>
 		</div>
 	</aside>
