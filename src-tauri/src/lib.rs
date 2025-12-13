@@ -182,13 +182,19 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
 
     let menu = Menu::with_items(app, &[&show, &mute, &quit])?;
 
+    // Get the icon path
+    let icon = app.default_window_icon().cloned();
+
     let _tray = TrayIconBuilder::new()
+        .icon(icon.unwrap())
+        .tooltip("Sukun - Prayer Times")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
+                    let _ = window.unminimize();
                 }
             }
             "mute" => {
@@ -196,7 +202,8 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
                 println!("Audio muted from tray");
             }
             "quit" => {
-                app.exit(0);
+                // Properly close all windows and exit
+                std::process::exit(0);
             }
             _ => {}
         })
@@ -209,8 +216,13 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
             {
                 let app = tray.app_handle();
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                    if window.is_visible().unwrap_or(false) {
+                        let _ = window.hide();
+                    } else {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        let _ = window.unminimize();
+                    }
                 }
             }
         })
