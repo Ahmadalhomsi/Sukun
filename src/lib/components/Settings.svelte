@@ -163,7 +163,7 @@ saveMessage = 'Namaz vakitleri başarıyla alındı!';
 				</div>
 			</div>
 			<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-				Aladhan API'sini kullanıyoruz - API anahtarı gerekmez
+				API anahtarı gerekmez
 			</p>
 		</div>
 
