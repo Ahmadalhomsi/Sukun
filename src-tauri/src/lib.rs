@@ -10,12 +10,16 @@ use crate::db::{Database, PrayerLog, PrayerTime};
 use crate::scheduler::PrayerScheduler;
 use anyhow::Result;
 use chrono::Local;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, State, WindowEvent,
+    AppHandle, Manager, RunEvent, State,
 };
+
+static EXIT_GUARD: OnceLock<AtomicBool> = OnceLock::new();
 
 struct AppState {
     db: Arc<Database>,
@@ -182,11 +186,10 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
 
     let menu = Menu::with_items(app, &[&show, &mute, &quit])?;
 
-    // Get the icon path
+    // Build tray icon safely (icon may be missing in some builds)
     let icon = app.default_window_icon().cloned();
 
-    let _tray = TrayIconBuilder::new()
-        .icon(icon.unwrap())
+    let mut tray_builder = TrayIconBuilder::new()
         .tooltip("Sukun - Prayer Times")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
@@ -202,8 +205,8 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
                 println!("Audio muted from tray");
             }
             "quit" => {
-                // Properly close all windows and exit
-                std::process::exit(0);
+                // Ask Tauri to stop the event loop and exit cleanly
+                app.exit(0);
             }
             _ => {}
         })
@@ -225,15 +228,22 @@ fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
                     }
                 }
             }
-        })
-        .build(app)?;
+        });
+
+    if let Some(icon) = icon {
+        tray_builder = tray_builder.icon(icon);
+    }
+
+    let _tray = tray_builder.build(app)?;
 
     Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let context = tauri::generate_context!();
+
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
@@ -265,19 +275,6 @@ pub fn run() {
                 }
             });
 
-            // Handle window close event - minimize to tray instead of exit
-            let window = app.get_webview_window("main").unwrap();
-            let app_handle_for_event = app.handle().clone();
-            window.on_window_event(move |event| {
-                if let WindowEvent::CloseRequested { api, .. } = event {
-                    // Prevent window from closing, hide it instead
-                    api.prevent_close();
-                    if let Some(window) = app_handle_for_event.get_webview_window("main") {
-                        let _ = window.hide();
-                    }
-                }
-            });
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -294,6 +291,22 @@ pub fn run() {
             unmute_audio_now,
             check_audio_mute_status,
         ])
-        .run(tauri::generate_context!())
+        .build(context)
         .expect("error while running tauri application");
+
+    app.run(|app, event| {
+        if let RunEvent::ExitRequested { api, .. } = event {
+            // Keep the event loop alive and tray running, but destroy all webviews
+            api.prevent_exit();
+
+            let guard = EXIT_GUARD.get_or_init(|| AtomicBool::new(false));
+            if guard.swap(true, Ordering::SeqCst) {
+                return;
+            }
+
+            for (_, window) in app.webview_windows() {
+                let _ = window.destroy();
+            }
+        }
+    });
 }
