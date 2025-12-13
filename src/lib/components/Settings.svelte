@@ -15,6 +15,7 @@
 	let autoMute = true;
 	let notificationsEnabled = true;
 	let preAlertEnabled = true;
+	let preAlertMinutes = 10;
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
 	let selectedLang: Language = 'tr';
 	let timeAdjustment = 0;
@@ -57,6 +58,9 @@
 						break;
 					case 'pre_prayer_alert_enabled':
 						preAlertEnabled = setting.value !== 'false';
+						break;
+					case 'pre_prayer_alert_minutes':
+						preAlertMinutes = parseInt(setting.value) || 10;
 						break;
 					case 'theme_mode':
 						selectedTheme = setting.value as 'light' | 'dark' | 'system';
@@ -150,6 +154,7 @@
 			await apiClient.setSetting('auto_mute', autoMute.toString());
 			await apiClient.setSetting('notifications_enabled', notificationsEnabled.toString());
 			await apiClient.setSetting('pre_prayer_alert_enabled', preAlertEnabled.toString());
+			await apiClient.setSetting('pre_prayer_alert_minutes', preAlertMinutes.toString());
 			await apiClient.setSetting('theme_mode', selectedTheme);
 			await apiClient.setSetting('time_adjustment', timeAdjustment.toString());
 			await apiClient.setSetting('unmute_after_minutes', unmuteAfterMinutes.toString());
@@ -412,9 +417,27 @@
 						class="w-5 h-5 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
 					/>
 					<span class="text-gray-700 dark:text-gray-300">
-						{$currentLanguage === 'tr' ? 'Namazdan 10 dk önce uyar' : 'Alert 10 minutes before prayer'}
+						{$currentLanguage === 'tr' ? `Namazdan ${preAlertMinutes} dk önce uyar` : `Alert ${preAlertMinutes} minutes before prayer`}
 					</span>
 				</label>
+				{#if preAlertEnabled && notificationsEnabled}
+					<div class="ml-8 max-w-xs">
+						<label for="preAlertMinutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							{$currentLanguage === 'tr' ? 'Uyarı dakikası' : 'Alert minutes before'}
+						</label>
+						<input
+							id="preAlertMinutes"
+							type="number"
+							min="1"
+							max="120"
+							bind:value={preAlertMinutes}
+							class="input-field"
+						/>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							{$currentLanguage === 'tr' ? 'Namazdan kaç dakika önce bildirim gösterilsin' : 'How many minutes before prayer to notify'}
+						</p>
+					</div>
+				{/if}
 			</div>
 		</div>
 

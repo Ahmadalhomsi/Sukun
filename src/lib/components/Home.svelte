@@ -10,6 +10,7 @@
 	let nextPrayer = $state<PrayerTime | null>(null);
 	let currentTime = $state(new Date());
 	let preAlertEnabled = $state(false);
+	let preAlertMinutes = $state(10);
 	let alertTimeout: number | null = null;
 	let lastAlertPrayerName: string | null = null;
 
@@ -47,7 +48,8 @@
 			const target = new Date();
 			const [h, m] = nextPrayer.time.split(':').map(Number);
 			target.setHours(h, m, 0, 0);
-			const diffMs = target.getTime() - Date.now() - 10 * 60 * 1000;
+			const minutes = Math.max(1, preAlertMinutes || 10);
+			const diffMs = target.getTime() - Date.now() - minutes * 60 * 1000;
 
 			const prayer = nextPrayer;
 
@@ -101,29 +103,38 @@
 
 	onMount(() => {
 		const init = async () => {
-			await loadPrayers();
+			try {
+				const settings = await apiClient.getAllSettings();
+				const citySettings = settings.find((s) => s.key === 'city');
+				const countrySettings = settings.find((s) => s.key === 'country');
+				const preAlertSetting = settings.find((s) => s.key === 'pre_prayer_alert_enabled');
+				const preAlertMinutesSetting = settings.find((s) => s.key === 'pre_prayer_alert_minutes');
 
-			// Auto-fetch prayers on first load if location is configured but no prayers exist
-			if (prayers.length === 0) {
-				try {
-					const settings = await apiClient.getAllSettings();
-					const citySettings = settings.find((s) => s.key === 'city');
-					const countrySettings = settings.find((s) => s.key === 'country');
-					const preAlertSetting = settings.find((s) => s.key === 'pre_prayer_alert_enabled');
-					preAlertEnabled = preAlertSetting?.value === 'true';
+				preAlertEnabled = preAlertSetting?.value !== 'false';
+				preAlertMinutes = preAlertMinutesSetting?.value
+					? parseInt(preAlertMinutesSetting.value, 10) || 10
+					: 10;
 
+				await loadPrayers();
+
+				// Auto-fetch prayers on first load if location is configured but no prayers exist
+				if (prayers.length === 0) {
 					if (citySettings?.value && countrySettings?.value) {
-						console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
-						const today = getTodayDate();
-						await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
-						await loadPrayers();
+						try {
+							console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
+							const today = getTodayDate();
+							await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+							await loadPrayers();
+						} catch (error) {
+							console.error('Auto-fetch failed:', error);
+							$errorMessage = 'Auto-fetch failed. Please configure location in Settings.';
+						}
 					} else {
 						console.log('Location not configured, skipping auto-fetch');
 					}
-				} catch (error) {
-					console.error('Auto-fetch failed:', error);
-					$errorMessage = 'Auto-fetch failed. Please configure location in Settings.';
 				}
+			} catch (error) {
+				console.error('Failed to load settings:', error);
 			}
 		};
 
