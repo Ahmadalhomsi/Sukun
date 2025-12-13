@@ -72,27 +72,27 @@ pub async fn fetch_prayer_times(
 
     let prayers = vec![
         Prayer {
-            name: "İmsak".to_string(), // Fajr in Turkish
+            name: "Fajr".to_string(),
             time: clean_time(&timings.Fajr),
         },
         Prayer {
-            name: "Güneş".to_string(), // Sunrise in Turkish
+            name: "Sunrise".to_string(),
             time: clean_time(&timings.Sunrise),
         },
         Prayer {
-            name: "Öğle".to_string(), // Dhuhr in Turkish
+            name: "Dhuhr".to_string(),
             time: clean_time(&timings.Dhuhr),
         },
         Prayer {
-            name: "İkindi".to_string(), // Asr in Turkish
+            name: "Asr".to_string(),
             time: clean_time(&timings.Asr),
         },
         Prayer {
-            name: "Akşam".to_string(), // Maghrib in Turkish
+            name: "Maghrib".to_string(),
             time: clean_time(&timings.Maghrib),
         },
         Prayer {
-            name: "Yatsı".to_string(), // Isha in Turkish
+            name: "Isha".to_string(),
             time: clean_time(&timings.Isha),
         },
     ];

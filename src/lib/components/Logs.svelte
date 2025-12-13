@@ -4,6 +4,7 @@
 	import type { PrayerLog } from '$lib/api/schema';
 	import { formatTime } from '$lib/utils/time';
 	import { isLoadingLogs } from '$lib/stores';
+	import { t, currentLanguage, translatePrayerName } from '$lib/i18n';
 
 	let logs: PrayerLog[] = [];
 	let displayLimit = 50;
@@ -41,9 +42,9 @@
 <div class="container mx-auto px-4 py-8 max-w-5xl">
 	<div class="mb-8 flex items-center justify-between">
 		<div>
-			<h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-2">Prayer Logs</h1>
+			<h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-2">{$t.prayerLogs}</h1>
 			<p class="text-gray-600 dark:text-gray-400">
-				History of automated prayer actions
+				{$t.historyOfActions}
 			</p>
 		</div>
 		<button
@@ -54,7 +55,7 @@
 			<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 			</svg>
-			Refresh
+			{$t.refresh}
 		</button>
 	</div>
 
@@ -67,9 +68,9 @@
 			<svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 			</svg>
-			<p class="text-gray-600 dark:text-gray-400 text-lg">No logs yet</p>
+			<p class="text-gray-600 dark:text-gray-400 text-lg">{$t.noLogs}</p>
 			<p class="text-sm text-gray-500 dark:text-gray-500 mt-2">
-				Prayer actions will appear here once they are executed
+				{$t.historyOfActions}
 			</p>
 		</div>
 	{:else}
