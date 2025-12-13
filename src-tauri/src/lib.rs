@@ -22,6 +22,39 @@ struct AppState {
 }
 
 #[tauri::command]
+async fn clear_all_prayer_times(state: State<'_, AppState>) -> Result<(), String> {
+    sqlx::query("DELETE FROM prayer_times")
+        .execute(&state.db.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn store_prayer_time(
+    state: State<'_, AppState>,
+    name: String,
+    time: String,
+    date: String,
+) -> Result<PrayerTime, String> {
+    let prayer_time = PrayerTime {
+        id: None,
+        name,
+        time,
+        date,
+        created_at: None,
+    };
+
+    state
+        .db
+        .insert_prayer_times(vec![prayer_time.clone()])
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(prayer_time)
+}
+
+#[tauri::command]
 async fn fetch_and_store_prayer_times(
     state: State<'_, AppState>,
     api_key: String,
@@ -29,6 +62,18 @@ async fn fetch_and_store_prayer_times(
     country: String,
     date: String,
 ) -> Result<Vec<PrayerTime>, String> {
+    // Check if prayers for this date already exist
+    let existing_prayers = state
+        .db
+        .get_prayer_times_for_date(&date)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    if !existing_prayers.is_empty() {
+        // Return existing prayers instead of fetching again
+        return Ok(existing_prayers);
+    }
+
     let response = api::fetch_prayer_times(&api_key, &city, &country, &date)
         .await
         .map_err(|e| e.to_string())?;
@@ -224,6 +269,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            clear_all_prayer_times,
+            store_prayer_time,
             fetch_and_store_prayer_times,
             get_prayer_times_for_date,
             get_todays_prayers,

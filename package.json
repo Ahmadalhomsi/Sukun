@@ -18,8 +18,10 @@
     "@tanstack/svelte-query": "^5.59.20",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2",
+    "@tauri-apps/plugin-geolocation": "^2.3.2",
     "@tauri-apps/plugin-notification": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "adhan": "^4.4.3",
     "svelte-local-storage-store": "^0.6.4",
     "zod": "^3.23.8"
   },

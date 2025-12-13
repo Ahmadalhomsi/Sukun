@@ -32,7 +32,7 @@ pub struct AppSettings {
 }
 
 pub struct Database {
-    pool: Pool<Sqlite>,
+    pub pool: Pool<Sqlite>,
 }
 
 impl Database {
@@ -100,6 +100,14 @@ impl Database {
     }
 
     // Prayer Times operations
+    pub async fn delete_prayer_times_for_date(&self, date: &str) -> Result<()> {
+        sqlx::query("DELETE FROM prayer_times WHERE date = ?")
+            .bind(date)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn insert_prayer_times(&self, prayers: Vec<PrayerTime>) -> Result<()> {
         for prayer in prayers {
             sqlx::query(

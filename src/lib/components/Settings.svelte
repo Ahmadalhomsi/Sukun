@@ -5,16 +5,21 @@
 	import { getTodayDate } from '$lib/utils/time';
 	import { t, currentLanguage, setLanguage, type Language } from '$lib/i18n';
 	import LocationSelector from './LocationSelector.svelte';
+	import { getCurrentPosition, getLocationFromIP, isGeolocationAvailable } from '$lib/services/geolocation';
 
 	let city = 'Istanbul';
 	let country = 'Turkey';
+	let useAutoLocation = false;
+	let currentLatitude = 0;
+	let currentLongitude = 0;
 	let autoMute = true;
 	let notificationsEnabled = true;
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
 	let selectedLang: Language = 'tr';
-	let timeAdjustment = 0; // Minutes to adjust prayer times (can be negative)
-	let unmuteAfterMinutes = 5; // Auto-unmute after X minutes
+	let timeAdjustment = 0;
+	let unmuteAfterMinutes = 5;
 	let showLocationDialog = false;
+	let showLocationError = false;
 
 	let isSaving = false;
 	let saveMessage = '';
@@ -33,6 +38,15 @@
 						break;
 					case 'country':
 						country = setting.value || 'Turkey';
+						break;
+					case 'use_auto_location':
+						useAutoLocation = setting.value === 'true';
+						break;
+					case 'latitude':
+						currentLatitude = parseFloat(setting.value) || 0;
+						break;
+					case 'longitude':
+						currentLongitude = parseFloat(setting.value) || 0;
 						break;
 					case 'auto_mute':
 						autoMute = setting.value === 'true';
@@ -69,6 +83,55 @@
 		setLanguage(selectedLang);
 	}
 
+	async function useMyLocation() {
+		try {
+			isSaving = true;
+			showLocationError = false;
+			saveMessage = 'Getting your location...';
+
+			const position = await getCurrentPosition();
+			currentLatitude = position.latitude;
+			currentLongitude = position.longitude;
+			useAutoLocation = true;
+
+			city = 'GPS Location';
+			country = `${position.latitude.toFixed(4)}, ${position.longitude.toFixed(4)}`;
+
+			saveMessage = `✅ Location found: ${position.latitude.toFixed(4)}, ${position.longitude.toFixed(4)}`;
+			setTimeout(() => (saveMessage = ''), 3000);
+		} catch (error) {
+			showLocationError = true;
+			saveMessage = error instanceof Error ? error.message : 'Failed to get location';
+			console.error('Geolocation error:', error);
+		} finally {
+			isSaving = false;
+		}
+	}
+
+	async function useIPLocation() {
+		try {
+			isSaving = true;
+			showLocationError = false;
+			saveMessage = 'Getting location from IP address...';
+
+			const location = await getLocationFromIP();
+			currentLatitude = location.latitude;
+			currentLongitude = location.longitude;
+			useAutoLocation = true;
+
+			city = location.city;
+			country = location.country;
+
+			saveMessage = `✅ Location found: ${location.city}, ${location.country}`;
+			setTimeout(() => (saveMessage = ''), 3000);
+		} catch (error) {
+			saveMessage = error instanceof Error ? error.message : 'Failed to get location from IP';
+			console.error('IP Location error:', error);
+		} finally {
+			isSaving = false;
+		}
+	}
+
 	async function saveSettings() {
 		try {
 			isSaving = true;
@@ -77,6 +140,9 @@
 			// Save to backend
 			await apiClient.setSetting('city', city);
 			await apiClient.setSetting('country', country);
+			await apiClient.setSetting('use_auto_location', useAutoLocation.toString());
+			await apiClient.setSetting('latitude', currentLatitude.toString());
+			await apiClient.setSetting('longitude', currentLongitude.toString());
 			await apiClient.setSetting('auto_mute', autoMute.toString());
 			await apiClient.setSetting('notifications_enabled', notificationsEnabled.toString());
 			await apiClient.setSetting('theme_mode', selectedTheme);
@@ -110,13 +176,23 @@
 			isSaving = true;
 			saveMessage = '';
 
-			if (!city || !country) {
-				saveMessage = $t.enterCityCountry;
-				return;
-			}
-
 			const today = getTodayDate();
-			await apiClient.fetchAndStorePrayerTimes(city, country, today);
+			
+			if (useAutoLocation && currentLatitude !== 0 && currentLongitude !== 0) {
+				// Use coordinates
+				await apiClient.calculateAndStorePrayerTimesFromCoordinates(
+					currentLatitude,
+					currentLongitude,
+					today
+				);
+			} else {
+				// Use city/country
+				if (!city || !country) {
+					saveMessage = $t.enterCityCountry;
+					return;
+				}
+				await apiClient.calculateAndStorePrayerTimes(city, country, today);
+			}
 			
 			saveMessage = $t.prayerTimesFetched;
 			
@@ -179,22 +255,93 @@
 			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
 				{$t.location}
 			</h2>
-			<div class="flex items-center justify-between mb-4">
-				<div class="flex-1">
-					<p class="text-gray-700 dark:text-gray-300">
-						<span class="font-medium">{$t.city}:</span> {city || 'Not set'}
-					</p>
-					<p class="text-gray-700 dark:text-gray-300">
-						<span class="font-medium">{$t.country}:</span> {country || 'Not set'}
-					</p>
-				</div>
-				<button
-					onclick={() => showLocationDialog = true}
-					class="btn-primary"
-				>
-					{$t.selectLocation}
-				</button>
+			
+			<div class="mb-4">
+				<label class="flex items-center space-x-3 cursor-pointer mb-4">
+					<input
+						type="checkbox"
+						bind:checked={useAutoLocation}
+						class="w-5 h-5 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
+					/>
+					<span class="text-gray-700 dark:text-gray-300">
+						Use my device location automatically
+					</span>
+				</label>
 			</div>
+
+			{#if useAutoLocation}
+				<div class="mb-4 space-y-3">
+					<div class="grid grid-cols-2 gap-3">
+						<button
+							onclick={useMyLocation}
+							disabled={isSaving}
+							class="btn-primary"
+						>
+							<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+							</svg>
+							{isSaving ? 'Getting...' : 'Use GPS'}
+						</button>
+						<button
+							onclick={useIPLocation}
+							disabled={isSaving}
+							class="btn-secondary"
+						>
+							<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+							</svg>
+							Use IP
+						</button>
+					</div>
+					
+					{#if showLocationError}
+						<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+							<p class="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+								⚠️ Windows Location Services may be disabled
+							</p>
+							<ol class="text-xs text-yellow-700 dark:text-yellow-300 list-decimal list-inside space-y-1">
+								<li>Open Windows Settings</li>
+								<li>Go to Privacy & Security → Location</li>
+								<li>Turn ON "Location services"</li>
+								<li>Allow this app to access location</li>
+							</ol>
+							<p class="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
+								Or use the "Use IP" button for approximate location.
+							</p>
+						</div>
+					{/if}
+					
+					{#if currentLatitude !== 0 && currentLongitude !== 0}
+						<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+							<p class="text-sm text-green-700 dark:text-green-300">
+								📍 {city}, {country}
+							</p>
+							<p class="text-xs text-green-600 dark:text-green-400">
+								Coordinates: {currentLatitude.toFixed(4)}, {currentLongitude.toFixed(4)}
+							</p>
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<div class="flex items-center justify-between mb-4">
+					<div class="flex-1">
+						<p class="text-gray-700 dark:text-gray-300">
+							<span class="font-medium">{$t.city}:</span> {city || 'Not set'}
+						</p>
+						<p class="text-gray-700 dark:text-gray-300">
+							<span class="font-medium">{$t.country}:</span> {country || 'Not set'}
+						</p>
+					</div>
+					<button
+						onclick={() => showLocationDialog = true}
+						class="btn-primary"
+					>
+						{$t.selectLocation}
+					</button>
+				</div>
+			{/if}
+			
 			<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
 				{$t.usingFreeApi}
 			</p>
@@ -336,6 +483,22 @@
 				class="btn-outline flex-1"
 			>
 				{$t.fetchPrayerTimes}
+			</button>
+		</div>
+
+		<!-- Debug: Clear Database -->
+		<div class="mt-4">
+			<button
+				onclick={async () => {
+					if (confirm('Clear all prayer times from database?')) {
+						await apiClient.clearAllPrayerTimes();
+						saveMessage = 'Database cleared';
+						setTimeout(() => saveMessage = '', 2000);
+					}
+				}}
+				class="btn-secondary w-full text-sm text-red-600 dark:text-red-400"
+			>
+				🗑️ Clear Prayer Database (Debug)
 			</button>
 		</div>
 	</div>

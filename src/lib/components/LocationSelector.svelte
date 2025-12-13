@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { countries } from '$lib/data/locations';
+	import { countries, type City } from '$lib/data/locations';
 	import { t } from '$lib/i18n';
 	
 	export let show = false;
@@ -11,7 +11,7 @@
 	let searchCity = '';
 	
 	$: filteredCities = selectedCountryData.cities.filter(city =>
-		city.toLowerCase().includes(searchCity.toLowerCase())
+		city.name.toLowerCase().includes(searchCity.toLowerCase())
 	);
 	
 	function handleCountryChange(countryName: string) {
@@ -26,8 +26,8 @@
 		}
 	}
 	
-	function handleCityClick(city: string) {
-		selectedCity = city;
+	function handleCityClick(cityName: string) {
+		selectedCity = cityName;
 		selectLocation();
 	}
 </script>
@@ -89,13 +89,13 @@
 				<div class="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
 					{#each filteredCities as city}
 						<button
-							onclick={() => handleCityClick(city)}
+							onclick={() => handleCityClick(city.name)}
 						class="p-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-primary-50 hover:border-primary-500 transition-colors"
-						class:bg-primary-100={selectedCity === city}
-							class:border-primary-500={selectedCity === city}
+						class:bg-primary-100={selectedCity === city.name}
+							class:border-primary-500={selectedCity === city.name}
 						>
 							<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-								{city}
+								{city.name}
 							</span>
 						</button>
 					{/each}

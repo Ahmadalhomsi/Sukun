@@ -5,23 +5,91 @@ import {
 	prayerLogsArraySchema,
 	appSettingsArraySchema
 } from './schema';
+import { countries, type City } from '$lib/data/locations';
+import { calculatePrayerTimes, convertToDbFormat } from '$lib/services/prayerCalculator';
 
 export class TauriApiClient {
 	/**
-	 * Fetch prayer times from Aladhan API and store in database
+	 * Calculate and store prayer times locally using adhan-js
+	 */
+	async calculateAndStorePrayerTimes(
+		cityName: string,
+		countryName: string,
+		date: string
+	): Promise<PrayerTime[]> {
+		// Find the city coordinates
+		const country = countries.find(c => c.name === countryName);
+		if (!country) {
+			throw new Error(`Country not found: ${countryName}`);
+		}
+
+		const city = country.cities.find(c => c.name === cityName);
+		if (!city) {
+			throw new Error(`City not found: ${cityName}`);
+		}
+
+		return this.calculateAndStorePrayerTimesFromCoordinates(
+			city.latitude,
+			city.longitude,
+			date
+		);
+	}
+
+	/**
+	 * Calculate and store prayer times from coordinates
+	 */
+	async calculateAndStorePrayerTimesFromCoordinates(
+		latitude: number,
+		longitude: number,
+		date: string
+	): Promise<PrayerTime[]> {
+		// Clear existing prayers for this date first
+		await this.clearAllPrayerTimes();
+
+		// Calculate prayer times using adhan-js with coordinates
+		const dateObj = new Date(date);
+		const city = { name: 'Current Location', latitude, longitude };
+		const calculatedTimes = calculatePrayerTimes(city, dateObj);
+		
+		// Convert to database format
+		const prayerData = convertToDbFormat(calculatedTimes, date);
+
+		// Store each prayer time in the database
+		const storedPrayers: PrayerTime[] = [];
+		for (const prayer of prayerData) {
+			const stored = await this.storeSinglePrayerTime(prayer.name, prayer.time, prayer.date);
+			storedPrayers.push(stored);
+		}
+
+		return storedPrayers;
+	}
+
+	/**
+	 * Store a single prayer time (helper method)
+	 */
+	private async storeSinglePrayerTime(
+		name: string,
+		time: string,
+		date: string
+	): Promise<PrayerTime> {
+		const result = await invoke<PrayerTime>('store_prayer_time', {
+			name,
+			time,
+			date
+		});
+		return result;
+	}
+
+	/**
+	 * Fetch prayer times from Aladhan API and store in database (deprecated - kept for compatibility)
 	 */
 	async fetchAndStorePrayerTimes(
 		city: string,
 		country: string,
 		date: string
 	): Promise<PrayerTime[]> {
-		const result = await invoke<PrayerTime[]>('fetch_and_store_prayer_times', {
-			apiKey: '', // Not needed for Aladhan API
-			city,
-			country,
-			date
-		});
-		return prayerTimesArraySchema.parse(result);
+		// Use local calculation instead
+		return this.calculateAndStorePrayerTimes(city, country, date);
 	}
 
 	/**
@@ -91,6 +159,13 @@ export class TauriApiClient {
 	async checkAudioMuteStatus(): Promise<boolean> {
 		const result = await invoke<boolean>('check_audio_mute_status');
 		return result;
+	}
+
+	/**
+	 * Clear all prayer times from database (for debugging)
+	 */
+	async clearAllPrayerTimes(): Promise<void> {
+		await invoke('clear_all_prayer_times');
 	}
 }
 

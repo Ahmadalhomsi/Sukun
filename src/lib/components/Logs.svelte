@@ -6,8 +6,8 @@
 	import { isLoadingLogs } from '$lib/stores';
 	import { t, currentLanguage, translatePrayerName } from '$lib/i18n';
 
-	let logs: PrayerLog[] = [];
-	let displayLimit = 50;
+	let logs = $state<PrayerLog[]>([]);
+	let displayLimit = $state(50);
 
 	async function loadLogs() {
 		try {
@@ -80,19 +80,19 @@
 					<thead>
 						<tr class="border-b border-gray-200 dark:border-gray-700">
 							<th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-								Prayer
+								{$t.prayer}
 							</th>
 							<th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-								Scheduled Time
+								{$t.scheduledTime}
 							</th>
 							<th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-								Executed At
+								{$t.executedAt}
 							</th>
 							<th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-								Action
+								{$t.action}
 							</th>
 							<th class="text-center py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-								Status
+								{$t.status}
 							</th>
 						</tr>
 					</thead>
@@ -102,10 +102,10 @@
 								<td class="py-3 px-4">
 									<div class="flex items-center space-x-3">
 										<div class="w-10 h-10 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold">
-											{log.prayer_name.charAt(0)}
-										</div>
-										<span class="font-medium text-gray-800 dark:text-gray-200">
-											{log.prayer_name}
+										{translatePrayerName(log.prayer_name, $currentLanguage).charAt(0)}
+									</div>
+									<span class="font-medium text-gray-800 dark:text-gray-200">
+										{translatePrayerName(log.prayer_name, $currentLanguage)}
 										</span>
 									</div>
 								</td>
