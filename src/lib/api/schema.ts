@@ -44,9 +44,8 @@ export const fetchPrayerTimesResponseSchema = prayerTimesArraySchema;
 
 // Settings Keys
 export const SETTINGS_KEYS = {
-	API_KEY: 'api_key',
-	LATITUDE: 'latitude',
-	LONGITUDE: 'longitude',
+	CITY: 'city',
+	COUNTRY: 'country',
 	AUTO_MUTE: 'auto_mute',
 	NOTIFICATIONS_ENABLED: 'notifications_enabled',
 	THEME_MODE: 'theme_mode'
@@ -54,9 +53,8 @@ export const SETTINGS_KEYS = {
 
 // Types for Settings
 export interface AppConfig {
-	apiKey: string;
-	latitude: number;
-	longitude: number;
+	city: string;
+	country: string;
 	autoMute: boolean;
 	notificationsEnabled: boolean;
 	themeMode: 'light' | 'dark' | 'system';

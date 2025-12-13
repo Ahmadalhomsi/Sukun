@@ -14,60 +14,93 @@ pub struct Prayer {
     pub time: String,
 }
 
-/// Placeholder function for fetching prayer times from API
-/// Replace this with actual API endpoint when provided
+// Aladhan API response structures
+#[derive(Debug, Deserialize)]
+struct AladhanResponse {
+    data: AladhanData,
+}
+
+#[derive(Debug, Deserialize)]
+struct AladhanData {
+    timings: AladhanTimings,
+}
+
+#[derive(Debug, Deserialize)]
+struct AladhanTimings {
+    Fajr: String,
+    Sunrise: String,
+    Dhuhr: String,
+    Asr: String,
+    Maghrib: String,
+    Isha: String,
+}
+
+/// Fetch prayer times from Aladhan API (free, no API key required)
 pub async fn fetch_prayer_times(
-    api_key: &str,
-    latitude: f64,
-    longitude: f64,
+    _api_key: &str,
+    city: &str,
+    country: &str,
     date: &str,
 ) -> Result<PrayerTimesResponse> {
     let client = reqwest::Client::new();
+    
+    // Parse date to get day, month, year
+    let parsed_date = NaiveDate::parse_from_str(date, "%Y-%m-%d")?;
+    let day = parsed_date.format("%d").to_string();
+    let month = parsed_date.format("%m").to_string();
+    let year = parsed_date.format("%Y").to_string();
 
-    // PLACEHOLDER: Replace with actual API endpoint
-    // Example endpoint structure (adjust based on actual API):
-    // let url = format!(
-    //     "https://api.example.com/prayer-times?lat={}&lng={}&date={}&key={}",
-    //     latitude, longitude, date, api_key
-    // );
+    // Aladhan API endpoint
+    let url = format!(
+        "https://api.aladhan.com/v1/timingsByCity/{}-{}-{}?city={}&country={}&method=13",
+        day, month, year, city, country
+    );
 
-    // For now, return mock data
-    // TODO: Replace with actual API call when endpoint is provided
-    let mock_response = PrayerTimesResponse {
-        date: date.to_string(),
-        prayers: vec![
-            Prayer {
-                name: "Fajr".to_string(),
-                time: "05:30".to_string(),
-            },
-            Prayer {
-                name: "Dhuhr".to_string(),
-                time: "12:45".to_string(),
-            },
-            Prayer {
-                name: "Asr".to_string(),
-                time: "15:30".to_string(),
-            },
-            Prayer {
-                name: "Maghrib".to_string(),
-                time: "18:15".to_string(),
-            },
-            Prayer {
-                name: "Isha".to_string(),
-                time: "19:45".to_string(),
-            },
-        ],
+    let response = client
+        .get(&url)
+        .send()
+        .await?
+        .json::<AladhanResponse>()
+        .await?;
+
+    let timings = response.data.timings;
+
+    // Extract just the time portion (remove timezone info if present)
+    let clean_time = |time: &str| -> String {
+        time.split_whitespace().next().unwrap_or(time).to_string()
     };
 
-    // Uncomment when real API is available:
-    // let response = client
-    //     .get(&url)
-    //     .send()
-    //     .await?
-    //     .json::<PrayerTimesResponse>()
-    //     .await?;
+    let prayers = vec![
+        Prayer {
+            name: "İmsak".to_string(), // Fajr in Turkish
+            time: clean_time(&timings.Fajr),
+        },
+        Prayer {
+            name: "Güneş".to_string(), // Sunrise in Turkish
+            time: clean_time(&timings.Sunrise),
+        },
+        Prayer {
+            name: "Öğle".to_string(), // Dhuhr in Turkish
+            time: clean_time(&timings.Dhuhr),
+        },
+        Prayer {
+            name: "İkindi".to_string(), // Asr in Turkish
+            time: clean_time(&timings.Asr),
+        },
+        Prayer {
+            name: "Akşam".to_string(), // Maghrib in Turkish
+            time: clean_time(&timings.Maghrib),
+        },
+        Prayer {
+            name: "Yatsı".to_string(), // Isha in Turkish
+            time: clean_time(&timings.Isha),
+        },
+    ];
 
-    Ok(mock_response)
+    Ok(PrayerTimesResponse {
+        date: date.to_string(),
+        prayers,
+    })
 }
 
 /// Validate prayer time format (HH:MM)

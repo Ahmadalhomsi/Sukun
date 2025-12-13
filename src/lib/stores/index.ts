@@ -7,9 +7,8 @@ export const themeMode = persisted<'light' | 'dark' | 'system'>('theme-mode', 's
 
 // App configuration (persisted)
 export const appConfig = persisted<Partial<AppConfig>>('app-config', {
-	apiKey: '',
-	latitude: 0,
-	longitude: 0,
+	city: 'Istanbul',
+	country: 'Turkey',
 	autoMute: true,
 	notificationsEnabled: true,
 	themeMode: 'system'

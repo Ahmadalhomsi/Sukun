@@ -8,18 +8,17 @@ import {
 
 export class TauriApiClient {
 	/**
-	 * Fetch prayer times from API and store in database
+	 * Fetch prayer times from Aladhan API and store in database
 	 */
 	async fetchAndStorePrayerTimes(
-		apiKey: string,
-		latitude: number,
-		longitude: number,
+		city: string,
+		country: string,
 		date: string
 	): Promise<PrayerTime[]> {
 		const result = await invoke<PrayerTime[]>('fetch_and_store_prayer_times', {
-			apiKey,
-			latitude,
-			longitude,
+			apiKey: '', // Not needed for Aladhan API
+			city,
+			country,
 			date
 		});
 		return prayerTimesArraySchema.parse(result);
