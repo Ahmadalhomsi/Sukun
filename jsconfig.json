@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"$lib": ["./src/lib"],
+			"$lib/*": ["./src/lib/*"]
+		},
+		"checkJs": true,
+		"moduleResolution": "bundler",
+		"target": "ESNext",
+		"module": "ESNext"
+	},
+	"include": ["src/**/*.js", "src/**/*.ts", "src/**/*.svelte"],
+	"exclude": [
+		"node_modules/*",
+		"src-tauri/target/*",
+		"build/*",
+		".svelte-kit/*",
+		"dist/*"
+	]
+}
