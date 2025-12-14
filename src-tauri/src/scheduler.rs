@@ -147,14 +147,22 @@ impl PrayerScheduler {
     }
 
     async fn send_notification(&self, title: &str, body: &str) -> Result<()> {
-        self.app_handle
+        // Use Tauri notification builder with proper configuration
+        match self.app_handle
             .notification()
             .builder()
             .title(title)
-            .body(body.to_string())
-            .show()?;
-
-        Ok(())
+            .body(body)
+            .show() {
+            Ok(_) => {
+                println!("Notification sent: {} - {}", title, body);
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("Failed to show notification: {}", e);
+                Err(anyhow::anyhow!("Notification error: {}", e))
+            }
+        }
     }
 
     async fn fire_pre_alert(&self, prayer: &PrayerTime, settings: &AlertSettings) -> Result<()> {

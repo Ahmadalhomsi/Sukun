@@ -162,6 +162,14 @@ export class TauriApiClient {
 	}
 
 	/**
+	 * Test Windows notifications
+	 */
+	async testNotification(): Promise<string> {
+		const result = await invoke<string>('test_notification');
+		return result;
+	}
+
+	/**
 	 * Clear all prayer times from database (for debugging)
 	 */
 	async clearAllPrayerTimes(): Promise<void> {

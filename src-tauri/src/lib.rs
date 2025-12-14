@@ -10,6 +10,7 @@ use crate::db::{Database, PrayerLog, PrayerTime};
 use crate::scheduler::PrayerScheduler;
 use anyhow::Result;
 use chrono::Local;
+use tauri_plugin_notification::NotificationExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::sync::Arc;
@@ -179,6 +180,19 @@ fn check_audio_mute_status() -> Result<bool, String> {
     audio::is_muted().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn test_notification(app_handle: AppHandle) -> Result<String, String> {
+    app_handle
+        .notification()
+        .builder()
+        .title("Sukun Test Notification")
+        .body("If you see this, notifications are working!")
+        .show()
+        .map_err(|e| e.to_string())?;
+    
+    Ok("Notification sent successfully".to_string())
+}
+
 fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show = MenuItem::with_id(app, "show", "Open Sukun", true, None::<&str>)?;
     let mute = MenuItem::with_id(app, "mute", "Mute Now", true, None::<&str>)?;
@@ -313,6 +327,7 @@ pub fn run() {
             mute_audio_now,
             unmute_audio_now,
             check_audio_mute_status,
+            test_notification,
         ])
         .build(context)
         .expect("error while running tauri application");

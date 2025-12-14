@@ -9,13 +9,6 @@
 	let prayers = $state<PrayerTime[]>([]);
 	let nextPrayer = $state<PrayerTime | null>(null);
 	let currentTime = $state(new Date());
-	let preAlertEnabled = $state(false);
-	let preAlertMinutes = $state(10);
-	let preAlertMode = $state<'notification' | 'sound'>('notification');
-	let notificationsEnabled = $state(true);
-	let alertSound: HTMLAudioElement | null = null;
-	let alertTimeout: number | null = null;
-	let lastAlertPrayerName: string | null = null;
 
 	// Update time every second
 	$effect(() => {
@@ -24,80 +17,6 @@
 		}, 1000);
 		return () => clearInterval(interval);
 	});
-
-	function playAlertSound() {
-		try {
-			if (!alertSound) {
-				alertSound = new Audio('/Smart_UI_Notification_Stylized_Calm_19_Menu_UI_Indie_Chill.wav');
-			}
-			alertSound.currentTime = 0;
-			alertSound.play().catch((err) => console.error('Pre-alert sound failed', err));
-		} catch (err) {
-			console.error('Pre-alert sound error', err);
-		}
-	}
-
-	function notifyOrSound(prayer: PrayerTime | null | undefined) {
-		if (!prayer) return;
-
-		if (preAlertMode === 'sound') {
-			playAlertSound();
-			return;
-		}
-
-		if (!notificationsEnabled) {
-			console.warn('Notifications disabled; pre-alert skipped');
-			return;
-		}
-
-		if (!('Notification' in window)) return;
-		const body = `${translatePrayerName(prayer.name, $currentLanguage)} ${formatTime(prayer.time)} ${$currentLanguage === 'tr' ? `${preAlertMinutes} dk önce uyarı` : `in ${preAlertMinutes} minutes`}`;
-		if (Notification.permission === 'granted') {
-			new Notification($t.nextPrayer, { body });
-		} else if (Notification.permission !== 'denied') {
-			Notification.requestPermission().then((permission) => {
-				if (permission === 'granted') {
-					new Notification($t.nextPrayer, { body });
-				}
-			});
-		}
-	}
-
-	function schedulePreAlert() {
-		if (alertTimeout) {
-			clearTimeout(alertTimeout);
-			alertTimeout = null;
-		}
-
-		if (!preAlertEnabled || !nextPrayer) return;
-
-		try {
-			const target = new Date();
-			const [h, m] = nextPrayer.time.split(':').map(Number);
-			target.setHours(h, m, 0, 0);
-			const minutes = Math.max(1, preAlertMinutes || 10);
-			const diffMs = target.getTime() - Date.now() - minutes * 60 * 1000;
-
-			const prayer = nextPrayer;
-
-			if (diffMs <= 0) {
-				if (prayer && lastAlertPrayerName !== prayer.name) {
-					notifyOrSound(prayer);
-					lastAlertPrayerName = prayer.name;
-				}
-				return;
-			}
-
-			alertTimeout = window.setTimeout(() => {
-				notifyOrSound(prayer);
-				if (prayer) {
-					lastAlertPrayerName = prayer.name;
-				}
-			}, diffMs);
-		} catch (err) {
-			console.error('Failed to schedule pre-alert', err);
-		}
-	}
 
 	async function loadPrayers() {
 		try {
@@ -108,7 +27,6 @@
 			// Find next prayer
 			const upcoming = prayers.find((p) => !isTimeInPast(p.time));
 			nextPrayer = upcoming || null;
-			schedulePreAlert();
 		} catch (error) {
 			$errorMessage = error instanceof Error ? error.message : 'Failed to load prayers';
 			console.error('Error loading prayers:', error);
@@ -131,25 +49,15 @@
 	onMount(() => {
 		const init = async () => {
 			try {
-				const settings = await apiClient.getAllSettings();
-				const citySettings = settings.find((s) => s.key === 'city');
-				const countrySettings = settings.find((s) => s.key === 'country');
-				const preAlertSetting = settings.find((s) => s.key === 'pre_prayer_alert_enabled');
-				const preAlertMinutesSetting = settings.find((s) => s.key === 'pre_prayer_alert_minutes');
-				const preAlertModeSetting = settings.find((s) => s.key === 'pre_prayer_alert_mode');
-				const notificationsEnabledSetting = settings.find((s) => s.key === 'notifications_enabled');
-
-				preAlertEnabled = preAlertSetting?.value !== 'false';
-				preAlertMinutes = preAlertMinutesSetting?.value
-					? parseInt(preAlertMinutesSetting.value, 10) || 10
-					: 10;
-				preAlertMode = preAlertModeSetting?.value === 'sound' ? 'sound' : 'notification';
-				notificationsEnabled = notificationsEnabledSetting?.value !== 'false';
-
+				// Load existing prayers first
 				await loadPrayers();
 
 				// Auto-fetch prayers on first load if location is configured but no prayers exist
 				if (prayers.length === 0) {
+					const settings = await apiClient.getAllSettings();
+					const citySettings = settings.find((s) => s.key === 'city');
+					const countrySettings = settings.find((s) => s.key === 'country');
+
 					if (citySettings?.value && countrySettings?.value) {
 						try {
 							console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
@@ -162,10 +70,11 @@
 						}
 					} else {
 						console.log('Location not configured, skipping auto-fetch');
+						$errorMessage = 'Please configure your location in Settings to load prayer times.';
 					}
 				}
 			} catch (error) {
-				console.error('Failed to load settings:', error);
+				console.error('Failed to initialize home:', error);
 			}
 		};
 
@@ -179,8 +88,15 @@
 
 		return () => {
 			window.removeEventListener('prayers-updated', handlePrayersUpdated);
-			if (alertTimeout) clearTimeout(alertTimeout);
 		};
+	});
+
+	// Keep nextPrayer in sync as time moves without reload
+	$effect(() => {
+		currentTime;
+		if (prayers.length === 0) return;
+		const upcoming = prayers.find((p) => !isTimeInPast(p.time));
+		nextPrayer = upcoming || null;
 	});
 </script>
 
@@ -216,7 +132,7 @@
 				</div>
 				<div class="text-right">
 					<p class="text-sm opacity-90 mb-1">{$t.timeRemaining}</p>
-					<p class="text-4xl font-bold">{getTimeUntil(nextPrayer.time, $currentLanguage)}</p>
+					<p class="text-4xl font-bold">{currentTime && getTimeUntil(nextPrayer.time, $currentLanguage)}</p>
 				</div>
 			</div>
 		</div>
@@ -274,7 +190,7 @@
 								<p class="text-2xl font-bold">{formatTime(prayer.time)}</p>
 								{#if !isTimeInPast(prayer.time)}
 									<p class="text-sm text-primary-600 dark:text-primary-400">
-										{getTimeUntil(prayer.time, $currentLanguage)}
+										{currentTime && getTimeUntil(prayer.time, $currentLanguage)}
 									</p>
 								{/if}
 							</div>

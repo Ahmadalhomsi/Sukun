@@ -5,7 +5,7 @@
 	import { getTodayDate } from '$lib/utils/time';
 	import { t, currentLanguage, setLanguage, type Language } from '$lib/i18n';
 	import LocationSelector from './LocationSelector.svelte';
-	import { getCurrentPosition, getLocationFromIP, isGeolocationAvailable } from '$lib/services/geolocation';
+	import { getCurrentPosition, getLocationFromIP } from '$lib/services/geolocation';
 
 	let city = 'Istanbul';
 	let country = 'Turkey';
@@ -247,19 +247,16 @@
 			return;
 		}
 
-		if (!('Notification' in window)) {
-			console.warn('Notifications not supported');
-			return;
-		}
-
-		const body = $currentLanguage === 'tr' ? 'Test bildirimi' : 'Test notification';
-		if (Notification.permission === 'granted') {
-			new Notification($t.nextPrayer, { body });
-		} else {
-			const permission = await Notification.requestPermission();
-			if (permission === 'granted') {
-				new Notification($t.nextPrayer, { body });
-			}
+		// Use Tauri notification instead of browser notification
+		try {
+			const result = await apiClient.testNotification();
+			console.log(result);
+			saveMessage = '✅ Test notification sent!';
+			setTimeout(() => saveMessage = '', 3000);
+		} catch (error) {
+			console.error('Notification test failed:', error);
+			saveMessage = '❌ Notification test failed. Check console for details.';
+			setTimeout(() => saveMessage = '', 3000);
 		}
 	}
 
