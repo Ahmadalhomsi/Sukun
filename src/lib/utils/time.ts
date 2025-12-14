@@ -50,13 +50,17 @@ export function getTimeUntil(time: string, lang: 'en' | 'tr' = 'en'): string {
 		const diff = prayerTime.getTime() - now.getTime();
 		const hoursLeft = Math.floor(diff / (1000 * 60 * 60));
 		const minutesLeft = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+		const secondsLeft = Math.floor((diff % (1000 * 60)) / 1000);
 
+		if (hoursLeft === 0 && minutesLeft === 0) {
+			return lang === 'tr' ? `${secondsLeft} saniye içinde` : `in ${secondsLeft}s`;
+		}
 		if (hoursLeft === 0) {
-			return lang === 'tr' ? `${minutesLeft} dk içinde` : `in ${minutesLeft}m`;
+			return lang === 'tr' ? `${minutesLeft} dk ${secondsLeft} sn içinde` : `in ${minutesLeft}m ${secondsLeft}s`;
 		}
 		return lang === 'tr'
-			? `${hoursLeft} sa ${minutesLeft} dk içinde`
-			: `in ${hoursLeft}h ${minutesLeft}m`;
+			? `${hoursLeft} sa ${minutesLeft} dk ${secondsLeft} sn içinde`
+			: `in ${hoursLeft}h ${minutesLeft}m ${secondsLeft}s`;
 	} catch {
 		return '';
 	}

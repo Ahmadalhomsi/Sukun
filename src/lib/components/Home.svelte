@@ -123,16 +123,29 @@
 		</div>
 	{:else if nextPrayer}
 		<!-- Next Prayer Card -->
-		<div class="prayer-card mb-8 animate-fade-in animate-pulse-glow">
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-sm opacity-90 mb-1">{$t.nextPrayer}</p>
-					<h2 class="text-3xl font-bold mb-2">{translatePrayerName(nextPrayer.name, $currentLanguage)}</h2>
-					<p class="text-xl opacity-95">{formatTime(nextPrayer.time)}</p>
+		<div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 text-white p-8 mb-8 shadow-2xl transform transition-all duration-300 hover:scale-[1.02]">
+			<!-- Decorative background pattern -->
+			<div class="absolute inset-0 opacity-10">
+				<div class="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>
+				<div class="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2"></div>
+			</div>
+			
+			<div class="relative flex items-center justify-between">
+				<div class="flex-1">
+					<p class="text-sm font-medium opacity-90 mb-2 uppercase tracking-wider">{$t.nextPrayer}</p>
+					<h2 class="text-5xl font-bold mb-3 drop-shadow-lg">{translatePrayerName(nextPrayer.name, $currentLanguage)}</h2>
+					<div class="flex items-center space-x-2">
+						<svg class="w-5 h-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<p class="text-2xl font-semibold opacity-95">{formatTime(nextPrayer.time)}</p>
+					</div>
 				</div>
 				<div class="text-right">
-					<p class="text-sm opacity-90 mb-1">{$t.timeRemaining}</p>
-					<p class="text-4xl font-bold">{currentTime && getTimeUntil(nextPrayer.time, $currentLanguage)}</p>
+					<p class="text-sm font-medium opacity-90 mb-2 uppercase tracking-wider">{$t.timeRemaining}</p>
+					<div class="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-4 border border-white/30">
+						<p class="text-5xl font-bold tabular-nums drop-shadow-lg">{currentTime && getTimeUntil(nextPrayer.time, $currentLanguage)}</p>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -168,28 +181,60 @@
 			<div class="space-y-3">
 				{#each prayers as prayer (prayer.id || prayer.name)}
 					<div
-						class="prayer-card-inactive hover:shadow-lg transition-all duration-200"
-						class:opacity-50={isTimeInPast(prayer.time)}
+						class="group relative bg-white dark:bg-gray-800 rounded-xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+						class:border-gray-200={isTimeInPast(prayer.time)}
+						class:dark:border-gray-700={isTimeInPast(prayer.time)}
+						class:opacity-60={isTimeInPast(prayer.time)}
+						class:border-primary-200={!isTimeInPast(prayer.time)}
+						class:dark:border-primary-800={!isTimeInPast(prayer.time)}
+						class:hover:border-primary-400={!isTimeInPast(prayer.time)}
+						class:dark:hover:border-primary-600={!isTimeInPast(prayer.time)}
 					>
+						<!-- Accent bar for active prayers -->
+						{#if !isTimeInPast(prayer.time)}
+							<div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary-400 to-primary-600 rounded-l-xl"></div>
+						{/if}
+						
 						<div class="flex items-center justify-between">
 							<div class="flex items-center space-x-4">
 								<div
-									class="w-12 h-12 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold text-lg"
-									class:bg-gray-400={isTimeInPast(prayer.time)}
+									class="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg transition-transform duration-300 group-hover:scale-110"
+									class:bg-gradient-to-br={!isTimeInPast(prayer.time)}
+									class:from-primary-500={!isTimeInPast(prayer.time)}
+									class:to-primary-600={!isTimeInPast(prayer.time)}
+									class:text-white={!isTimeInPast(prayer.time)}
+									class:bg-gray-300={isTimeInPast(prayer.time)}
+									class:dark:bg-gray-600={isTimeInPast(prayer.time)}
+									class:text-gray-600={isTimeInPast(prayer.time)}
+									class:dark:text-gray-400={isTimeInPast(prayer.time)}
 								>
 									{translatePrayerName(prayer.name, $currentLanguage).charAt(0)}
 								</div>
 								<div>
-									<h4 class="text-lg font-semibold">{translatePrayerName(prayer.name, $currentLanguage)}</h4>
-									<p class="text-sm text-gray-500 dark:text-gray-400">
-										{isTimeInPast(prayer.time) ? $t.completed : $t.upcoming}
-									</p>
+									<h4 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{translatePrayerName(prayer.name, $currentLanguage)}</h4>
+									<div class="flex items-center space-x-2 mt-1">
+										{#if isTimeInPast(prayer.time)}
+											<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+												<svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+													<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+												</svg>
+												{$t.completed}
+											</span>
+										{:else}
+											<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
+												<svg class="w-3 h-3 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+													<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+												</svg>
+												{$t.upcoming}
+											</span>
+										{/if}
+									</div>
 								</div>
 							</div>
 							<div class="text-right">
-								<p class="text-2xl font-bold">{formatTime(prayer.time)}</p>
+								<p class="text-3xl font-bold text-gray-800 dark:text-gray-200 tabular-nums">{formatTime(prayer.time)}</p>
 								{#if !isTimeInPast(prayer.time)}
-									<p class="text-sm text-primary-600 dark:text-primary-400">
+									<p class="text-sm font-medium text-primary-600 dark:text-primary-400 mt-1 tabular-nums">
 										{currentTime && getTimeUntil(prayer.time, $currentLanguage)}
 									</p>
 								{/if}
@@ -205,22 +250,28 @@
 	<div class="grid grid-cols-2 gap-4">
 		<button
 			onclick={() => apiClient.muteAudioNow()}
-			class="btn-primary"
+			class="group relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
 		>
-			<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-			</svg>
-			{$t.muteNow}
+			<div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+			<div class="relative flex items-center justify-center">
+				<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+				</svg>
+				<span>{$t.muteNow}</span>
+			</div>
 		</button>
 		<button
 			onclick={() => apiClient.unmuteAudioNow()}
-			class="btn-outline"
+			class="group relative overflow-hidden bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
 		>
-			<svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-			</svg>
-			{$t.unmute}
+			<div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+			<div class="relative flex items-center justify-center">
+				<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+				</svg>
+				<span>{$t.unmute}</span>
+			</div>
 		</button>
 	</div>
 </div>

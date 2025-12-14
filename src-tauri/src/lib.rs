@@ -187,6 +187,7 @@ async fn test_notification(app_handle: AppHandle) -> Result<String, String> {
         .builder()
         .title("Sukun Test Notification")
         .body("If you see this, notifications are working!")
+        .sound("default")
         .show()
         .map_err(|e| e.to_string())?;
     
