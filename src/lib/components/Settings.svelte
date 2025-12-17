@@ -23,6 +23,7 @@
 	let unmuteAfterMinutes = 5;
 	let showLocationDialog = false;
 	let showLocationError = false;
+	let autoStartEnabled = false;
 
 	let isSaving = false;
 	let saveMessage = '';
@@ -31,6 +32,13 @@
 	onMount(async () => {
 		// Set language from store
 		selectedLang = $currentLanguage;
+		
+		// Check auto-start status
+		try {
+			autoStartEnabled = await apiClient.isAutoStartEnabled();
+		} catch (error) {
+			console.error('Failed to check auto-start status:', error);
+		}
 		
 		try {
 			const settings = await apiClient.getAllSettings();
@@ -86,16 +94,37 @@
 		}
 	});
 	
-	function handleLocationSelect(newCity: string, newCountry: string) {
-		city = newCity;
-		country = newCountry;
-	}
-	
-	function handleLanguageChange() {
-		setLanguage(selectedLang);
-	}
 
-	async function useMyLocation() {
+
+	async function toggleAutoStart() {
+		try {
+			if (autoStartEnabled) {
+				await apiClient.disableAutoStart();
+				autoStartEnabled = false;
+				saveMessage = '✅ Auto-start disabled';
+			} else {
+				await apiClient.enableAutoStart();
+				autoStartEnabled = true;
+				saveMessage = '✅ Auto-start enabled - Sukun will start with Windows';
+			}
+			setTimeout(() => saveMessage = '', 3000);
+		} catch (error) {
+			saveMessage = '❌ Failed to toggle auto-start';
+			console.error('Auto-start toggle error:', error);
+			setTimeout(() => saveMessage = '', 3000);
+		}
+}
+
+function handleLocationSelect(newCity: string, newCountry: string) {
+	city = newCity;
+	country = newCountry;
+}
+
+function handleLanguageChange() {
+	setLanguage(selectedLang);
+}
+
+async function useMyLocation() {
 		try {
 			isSaving = true;
 			showLocationError = false;
@@ -570,6 +599,39 @@
 						class="w-4 h-4 text-primary-500"
 					/>
 					<span class="text-gray-700 dark:text-gray-300">{$t.themeSystem}</span>
+				</label>
+			</div>
+		</div>
+
+		<!-- Auto Start -->
+		<div class="card">
+			<h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-4">
+				{$currentLanguage === 'tr' ? 'Başlangıç' : 'Startup'}
+			</h2>
+			<div class="space-y-4">
+				<label class="flex items-center justify-between cursor-pointer">
+					<div>
+						<span class="text-gray-700 dark:text-gray-300 font-medium">
+							{$currentLanguage === 'tr' ? 'Windows ile başlat' : 'Start with Windows'}
+						</span>
+						<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+							{$currentLanguage === 'tr' 
+								? 'Sukun bilgisayar açıldığında otomatik olarak başlasın' 
+								: 'Automatically start Sukun when your computer boots'}
+						</p>
+					</div>
+					<button
+						onclick={toggleAutoStart}
+						class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+						class:bg-primary-600={autoStartEnabled}
+						class:bg-gray-300={!autoStartEnabled}
+					>
+						<span
+							class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+							class:translate-x-6={autoStartEnabled}
+							class:translate-x-1={!autoStartEnabled}
+						></span>
+					</button>
 				</label>
 			</div>
 		</div>

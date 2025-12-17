@@ -170,6 +170,30 @@ export class TauriApiClient {
 	}
 
 	/**
+	 * Enable auto-start on system startup
+	 */
+	async enableAutoStart(): Promise<boolean> {
+		const result = await invoke<boolean>('enable_auto_start');
+		return result;
+	}
+
+	/**
+	 * Disable auto-start on system startup
+	 */
+	async disableAutoStart(): Promise<boolean> {
+		const result = await invoke<boolean>('disable_auto_start');
+		return result;
+	}
+
+	/**
+	 * Check if auto-start is enabled
+	 */
+	async isAutoStartEnabled(): Promise<boolean> {
+		const result = await invoke<boolean>('is_auto_start_enabled');
+		return result;
+	}
+
+	/**
 	 * Clear all prayer times from database (for debugging)
 	 */
 	async clearAllPrayerTimes(): Promise<void> {

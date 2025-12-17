@@ -9,6 +9,7 @@ mod scheduler;
 use crate::db::{Database, PrayerLog, PrayerTime};
 use crate::scheduler::PrayerScheduler;
 use anyhow::Result;
+use auto_launch::AutoLaunch;
 use chrono::Local;
 use tauri_plugin_notification::NotificationExt;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -194,6 +195,52 @@ async fn test_notification(app_handle: AppHandle) -> Result<String, String> {
     Ok("Notification sent successfully".to_string())
 }
 
+#[tauri::command]
+fn enable_auto_start(app_handle: AppHandle) -> Result<bool, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let app_name = "Sukun";
+    
+    let auto = AutoLaunch::new(
+        app_name,
+        &exe.to_string_lossy(),
+        &[] as &[&str],
+    );
+    
+    auto.enable().map_err(|e| e.to_string())?;
+    println!("✅ Auto-start enabled");
+    Ok(true)
+}
+
+#[tauri::command]
+fn disable_auto_start(app_handle: AppHandle) -> Result<bool, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let app_name = "Sukun";
+    
+    let auto = AutoLaunch::new(
+        app_name,
+        &exe.to_string_lossy(),
+        &[] as &[&str],
+    );
+    
+    auto.disable().map_err(|e| e.to_string())?;
+    println!("❌ Auto-start disabled");
+    Ok(false)
+}
+
+#[tauri::command]
+fn is_auto_start_enabled(app_handle: AppHandle) -> Result<bool, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let app_name = "Sukun";
+    
+    let auto = AutoLaunch::new(
+        app_name,
+        &exe.to_string_lossy(),
+        &[] as &[&str],
+    );
+    
+    auto.is_enabled().map_err(|e| e.to_string())
+}
+
 fn setup_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show = MenuItem::with_id(app, "show", "Open Sukun", true, None::<&str>)?;
     let mute = MenuItem::with_id(app, "mute", "Mute Now", true, None::<&str>)?;
@@ -304,6 +351,62 @@ pub fn run() {
             // Setup system tray
             setup_system_tray(app.handle())?;
 
+            // Check and fetch today's prayer times on startup if empty
+            let db_clone = db.clone();
+            let app_handle_clone = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let today = Local::now().format("%Y-%m-%d").to_string();
+                
+                match db_clone.get_prayer_times_for_date(&today).await {
+                    Ok(prayers) => {
+                        if prayers.is_empty() {
+                            println!("⚠️  No prayer times found for today ({}). Attempting to fetch from settings...", today);
+                            
+                            // Try to get API settings and fetch prayer times
+                            if let (Ok(Some(api_key)), Ok(Some(city)), Ok(Some(country))) = (
+                                db_clone.get_setting("api_key").await,
+                                db_clone.get_setting("city").await,
+                                db_clone.get_setting("country").await,
+                            ) {
+                                println!("📡 Fetching prayer times for {} on startup...", today);
+                                
+                                match api::fetch_prayer_times(&api_key, &city, &country, &today).await {
+                                    Ok(response) => {
+                                        let prayer_times: Vec<PrayerTime> = response
+                                            .prayers
+                                            .into_iter()
+                                            .map(|p| PrayerTime {
+                                                id: None,
+                                                name: p.name,
+                                                time: p.time,
+                                                date: response.date.clone(),
+                                                created_at: None,
+                                            })
+                                            .collect();
+                                        
+                                        if let Err(e) = db_clone.insert_prayer_times(prayer_times.clone()).await {
+                                            eprintln!("❌ Failed to store fetched prayer times: {}", e);
+                                        } else {
+                                            println!("✅ Successfully fetched and stored {} prayer times for today", prayer_times.len());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("❌ Failed to fetch prayer times on startup: {}", e);
+                                    }
+                                }
+                            } else {
+                                println!("⚠️  API settings not configured. Please configure location in settings.");
+                            }
+                        } else {
+                            println!("✅ Found {} prayer times for today ({})", prayers.len(), today);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Error checking prayer times on startup: {}", e);
+                    }
+                }
+            });
+
             // Start prayer scheduler in background
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -329,6 +432,9 @@ pub fn run() {
             unmute_audio_now,
             check_audio_mute_status,
             test_notification,
+            enable_auto_start,
+            disable_auto_start,
+            is_auto_start_enabled,
         ])
         .build(context)
         .expect("error while running tauri application");
