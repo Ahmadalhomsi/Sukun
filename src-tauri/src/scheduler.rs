@@ -19,11 +19,12 @@ struct AlertSettings {
     pre_alert_minutes: i64,
     pre_alert_mode: String,
     notifications_enabled: bool,
+	language: String,
 }
 
 pub struct PrayerScheduler {
-    db: Arc<Database>,
-    app_handle: AppHandle,
+	db: Arc<Database>,
+	app_handle: AppHandle,
 }
 
 impl PrayerScheduler {
@@ -158,8 +159,17 @@ impl PrayerScheduler {
 
         // Step 3: Send notification if enabled
         if settings.notifications_enabled {
-            let title = format!("🕌 {} Prayer Time", prayer.name);
-            let body = format!("It's time for {} prayer at {}", prayer.name, prayer.time);
+            let translated_name = self.translate_prayer_name(&prayer.name, &settings.language).await;
+            let title = if settings.language == "tr" {
+                format!("🕌 {} Vakti", translated_name)
+            } else {
+                format!("🕌 {} Prayer Time", translated_name)
+            };
+            let body = if settings.language == "tr" {
+                format!("Saat {}'de {} vaktinin zamanı geldi", prayer.time, translated_name)
+            } else {
+                format!("It's time for {} prayer at {}", translated_name, prayer.time)
+            };
             println!("Sending notification: {} - {}", title, body);
             
             match self.send_notification(&title, &body).await {
@@ -222,17 +232,39 @@ impl PrayerScheduler {
         }
     }
 
+	async fn translate_prayer_name(&self, english_name: &str, language: &str) -> String {
+		if language == "tr" {
+			match english_name {
+				"Fajr" => "İmsak".to_string(),
+				"Sunrise" => "Güneş".to_string(),
+				"Dhuhr" => "Öğle".to_string(),
+				"Asr" => "İkindi".to_string(),
+				"Maghrib" => "Akşam".to_string(),
+				"Isha" => "Yatsı".to_string(),
+				_ => english_name.to_string(),
+			}
+		} else {
+			english_name.to_string()
+		}
+	}
+
     async fn fire_pre_alert(&self, prayer: &PrayerTime, settings: &AlertSettings) -> Result<()> {
-        println!("🔔 Firing pre-alert for {}: mode={}", prayer.name, settings.pre_alert_mode);
-        
-        // Always send notification if enabled
-        if settings.notifications_enabled {
-            let body = format!(
-                "{} prayer in {} minutes at {}",
-                prayer.name, settings.pre_alert_minutes, prayer.time
-            );
-            let title = format!("🕌 Upcoming Prayer");
-            println!("📢 Sending pre-alert notification: {} - {}", title, body);
+		let translated_name = self.translate_prayer_name(&prayer.name, &settings.language).await;
+		println!("🔔 Firing pre-alert for {}: mode={}", translated_name, settings.pre_alert_mode);
+		
+		// Always send notification if enabled
+		if settings.notifications_enabled {
+			let (title, body) = if settings.language == "tr" {
+				(
+					"🕌 Yaklaşan Namaz".to_string(),
+					format!("{} namaz {} dakika sonra saat {}'de", translated_name, settings.pre_alert_minutes, prayer.time)
+				)
+			} else {
+				(
+					"🕌 Upcoming Prayer".to_string(),
+					format!("{} prayer in {} minutes at {}", translated_name, settings.pre_alert_minutes, prayer.time)
+				)
+			};
             match self.send_notification(&title, &body).await {
                 Ok(_) => println!("✅ Pre-alert notification sent successfully"),
                 Err(e) => eprintln!("❌ Pre-alert notification failed: {}", e),
@@ -283,39 +315,25 @@ impl PrayerScheduler {
             .map(|v| v != "false")
             .unwrap_or(true);
 
-        println!(
-            "⚙️  Loaded settings: pre_alert_enabled={}, pre_alert_minutes={}, pre_alert_mode={}, notifications_enabled={}",
-            pre_alert_enabled, pre_alert_minutes, pre_alert_mode, notifications_enabled
-        );
+		let language = self
+			.db
+			.get_setting("language")
+			.await?
+			.unwrap_or_else(|| "en".to_string());
 
-        Ok(AlertSettings {
-            pre_alert_enabled,
-            pre_alert_minutes,
-            pre_alert_mode,
-            notifications_enabled,
-        })
-    }
+		println!(
+			"⚙️  Loaded settings: pre_alert_enabled={}, pre_alert_minutes={}, pre_alert_mode={}, notifications_enabled={}, language={}",
+			pre_alert_enabled, pre_alert_minutes, pre_alert_mode, notifications_enabled, language
+		);
 
-    fn play_pre_alert_sound(&self) -> Result<()> {
-        // Clone the audio data to move into thread
-        let audio_data = PRE_ALERT_WAV.to_vec();
-        
-        // Play sound in a separate thread to avoid blocking
-        std::thread::spawn(move || {
-            let cursor = Cursor::new(audio_data);
-            if let Ok((_stream, stream_handle)) = OutputStream::try_default() {
-                if let Ok(sink) = Sink::try_new(&stream_handle) {
-                    if let Ok(source) = Decoder::new(cursor) {
-                        sink.append(source);
-                        sink.sleep_until_end();
-                        // Stream and sink will be dropped here, after playback completes
-                    }
-                }
-            }
-        });
-        
-        Ok(())
-    }
+		Ok(AlertSettings {
+			pre_alert_enabled,
+			pre_alert_minutes,
+			pre_alert_mode,
+			notifications_enabled,
+			language,
+		})
+	}
 
     fn play_adhan_sound(&self) -> Result<()> {
         // Clone the audio data to move into thread
