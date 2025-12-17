@@ -196,7 +196,7 @@ async fn test_notification(app_handle: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn enable_auto_start(app_handle: AppHandle) -> Result<bool, String> {
+fn enable_auto_start(_app_handle: AppHandle) -> Result<bool, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let app_name = "Sukun";
     
@@ -212,7 +212,7 @@ fn enable_auto_start(app_handle: AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn disable_auto_start(app_handle: AppHandle) -> Result<bool, String> {
+fn disable_auto_start(_app_handle: AppHandle) -> Result<bool, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let app_name = "Sukun";
     
@@ -228,7 +228,7 @@ fn disable_auto_start(app_handle: AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn is_auto_start_enabled(app_handle: AppHandle) -> Result<bool, String> {
+fn is_auto_start_enabled(_app_handle: AppHandle) -> Result<bool, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let app_name = "Sukun";
     
@@ -353,7 +353,6 @@ pub fn run() {
 
             // Check and fetch today's prayer times on startup if empty
             let db_clone = db.clone();
-            let app_handle_clone = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let today = Local::now().format("%Y-%m-%d").to_string();
                 

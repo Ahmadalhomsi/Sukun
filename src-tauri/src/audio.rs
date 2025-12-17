@@ -2,7 +2,6 @@ use anyhow::Result;
 
 #[cfg(target_os = "windows")]
 use windows::{
-    core::*,
     Win32::Media::Audio::Endpoints::*,
     Win32::Media::Audio::*,
     Win32::System::Com::*,
@@ -97,6 +96,7 @@ pub fn unmute_system_audio() -> Result<()> {
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn set_system_volume(level: f32) -> Result<()> {
     unsafe {
         let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);

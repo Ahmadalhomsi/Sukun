@@ -286,6 +286,26 @@ impl PrayerScheduler {
         Ok(())
     }
 
+    fn play_pre_alert_sound(&self) -> Result<()> {
+        // Clone the audio data to move into thread
+        let audio_data = PRE_ALERT_WAV.to_vec();
+        
+        // Play sound in a separate thread to avoid blocking
+        std::thread::spawn(move || {
+            let cursor = Cursor::new(audio_data);
+            if let Ok((_stream, stream_handle)) = OutputStream::try_default() {
+                if let Ok(sink) = Sink::try_new(&stream_handle) {
+                    if let Ok(source) = Decoder::new(cursor) {
+                        sink.append(source);
+                        sink.sleep_until_end();
+                    }
+                }
+            }
+        });
+        
+        Ok(())
+    }
+
     async fn load_alert_settings(&self) -> Result<AlertSettings> {
         let pre_alert_enabled = self
             .db

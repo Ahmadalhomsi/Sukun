@@ -26,6 +26,7 @@ struct AladhanData {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(non_snake_case)]
 struct AladhanTimings {
     Fajr: String,
     Sunrise: String,
@@ -104,11 +105,13 @@ pub async fn fetch_prayer_times(
 }
 
 /// Validate prayer time format (HH:MM)
+#[allow(dead_code)]
 pub fn validate_time_format(time: &str) -> bool {
     NaiveTime::parse_from_str(time, "%H:%M").is_ok()
 }
 
 /// Validate date format (YYYY-MM-DD)
+#[allow(dead_code)]
 pub fn validate_date_format(date: &str) -> bool {
     NaiveDate::parse_from_str(date, "%Y-%m-%d").is_ok()
 }

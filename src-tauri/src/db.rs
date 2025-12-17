@@ -1,5 +1,4 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{migrate::MigrateDatabase, FromRow, Pool, Sqlite, SqlitePool};
 use std::path::PathBuf;
@@ -100,6 +99,7 @@ impl Database {
     }
 
     // Prayer Times operations
+    #[allow(dead_code)]
     pub async fn delete_prayer_times_for_date(&self, date: &str) -> Result<()> {
         sqlx::query("DELETE FROM prayer_times WHERE date = ?")
             .bind(date)
@@ -141,6 +141,7 @@ impl Database {
         Ok(prayers)
     }
 
+    #[allow(dead_code)]
     pub async fn clear_old_prayer_times(&self, before_date: &str) -> Result<()> {
         sqlx::query("DELETE FROM prayer_times WHERE date < ?")
             .bind(before_date)
