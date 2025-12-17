@@ -54,23 +54,30 @@
 
 				// Auto-fetch prayers on first load if location is configured but no prayers exist
 				if (prayers.length === 0) {
-					const settings = await apiClient.getAllSettings();
-					const citySettings = settings.find((s) => s.key === 'city');
-					const countrySettings = settings.find((s) => s.key === 'country');
+					try {
+						const settings = await apiClient.getAllSettings();
+						const citySettings = settings.find((s) => s.key === 'city');
+						const countrySettings = settings.find((s) => s.key === 'country');
 
-					if (citySettings?.value && countrySettings?.value) {
-						try {
-							console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
-							const today = getTodayDate();
-							await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
-							await loadPrayers();
-						} catch (error) {
-							console.error('Auto-fetch failed:', error);
-							$errorMessage = 'Auto-fetch failed. Please configure location in Settings.';
+						// Only proceed if we have valid location settings
+						if (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '') {
+							try {
+								console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
+								const today = getTodayDate();
+								await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+								await loadPrayers();
+							} catch (error) {
+								console.error('Auto-fetch failed:', error);
+								// Only show error if location is configured - this means there was an actual API error
+								$errorMessage = 'Failed to fetch prayer times. Check your location settings.';
+							}
+						} else {
+							console.log('Location not configured, skipping auto-fetch');
+							$errorMessage = 'Please configure your location in Settings to load prayer times.';
 						}
-					} else {
-						console.log('Location not configured, skipping auto-fetch');
-						$errorMessage = 'Please configure your location in Settings to load prayer times.';
+					} catch (error) {
+						console.error('Failed to load settings:', error);
+						// Don't show error on settings load failure - just wait for user to configure
 					}
 				}
 			} catch (error) {
