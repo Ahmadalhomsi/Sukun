@@ -359,43 +359,9 @@ pub fn run() {
                 match db_clone.get_prayer_times_for_date(&today).await {
                     Ok(prayers) => {
                         if prayers.is_empty() {
-                            println!("⚠️  No prayer times found for today ({}). Attempting to fetch from settings...", today);
-                            
-                            // Try to get API settings and fetch prayer times
-                            if let (Ok(Some(api_key)), Ok(Some(city)), Ok(Some(country))) = (
-                                db_clone.get_setting("api_key").await,
-                                db_clone.get_setting("city").await,
-                                db_clone.get_setting("country").await,
-                            ) {
-                                println!("📡 Fetching prayer times for {} on startup...", today);
-                                
-                                match api::fetch_prayer_times(&api_key, &city, &country, &today).await {
-                                    Ok(response) => {
-                                        let prayer_times: Vec<PrayerTime> = response
-                                            .prayers
-                                            .into_iter()
-                                            .map(|p| PrayerTime {
-                                                id: None,
-                                                name: p.name,
-                                                time: p.time,
-                                                date: response.date.clone(),
-                                                created_at: None,
-                                            })
-                                            .collect();
-                                        
-                                        if let Err(e) = db_clone.insert_prayer_times(prayer_times.clone()).await {
-                                            eprintln!("❌ Failed to store fetched prayer times: {}", e);
-                                        } else {
-                                            println!("✅ Successfully fetched and stored {} prayer times for today", prayer_times.len());
-                                        }
-                                    }
-                                    Err(e) => {
-                                        eprintln!("❌ Failed to fetch prayer times on startup: {}", e);
-                                    }
-                                }
-                            } else {
-                                println!("⚠️  API settings not configured. Please configure location in settings.");
-                            }
+                            println!("⚠️  No prayer times found for today ({}). Waiting for frontend to fetch...", today);
+                            // Don't auto-fetch on backend - let frontend handle it
+                            // This avoids conflicts and race conditions
                         } else {
                             println!("✅ Found {} prayer times for today ({})", prayers.len(), today);
                         }

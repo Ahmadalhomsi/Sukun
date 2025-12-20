@@ -68,8 +68,18 @@
 								await loadPrayers();
 							} catch (error) {
 								console.error('Auto-fetch failed:', error);
-								// Only show error if location is configured - this means there was an actual API error
-								$errorMessage = 'Failed to fetch prayer times. Check your location settings.';
+								// Wait a bit and retry once - sometimes this fails on first startup due to timing
+								console.log('Retrying auto-fetch after delay...');
+								await new Promise(resolve => setTimeout(resolve, 2000));
+								try {
+									const today = getTodayDate();
+									await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+									await loadPrayers();
+								} catch (retryError) {
+									console.error('Auto-fetch retry failed:', retryError);
+									// Only show error if it fails twice - might be a real issue
+									$errorMessage = 'Failed to fetch prayer times. Click "Fetch Prayer Times Now" in Settings.';
+								}
 							}
 						} else {
 							console.log('Location not configured, skipping auto-fetch');
