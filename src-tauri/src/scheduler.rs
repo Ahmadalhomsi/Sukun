@@ -157,7 +157,7 @@ impl PrayerScheduler {
             println!("✅ Adhan sound playing");
         }
 
-        // Step 3: Send notification if enabled
+        // Step 3: Send notification at exact prayer time if enabled
         if settings.notifications_enabled {
             let translated_name = self.translate_prayer_name(&prayer.name, &settings.language).await;
             let title = if settings.language == "tr" {
@@ -249,31 +249,10 @@ impl PrayerScheduler {
 	}
 
     async fn fire_pre_alert(&self, prayer: &PrayerTime, settings: &AlertSettings) -> Result<()> {
-		let translated_name = self.translate_prayer_name(&prayer.name, &settings.language).await;
-		println!("🔔 Firing pre-alert for {}: mode={}", translated_name, settings.pre_alert_mode);
-		
-		// Always send notification if enabled
-		if settings.notifications_enabled {
-			let (title, body) = if settings.language == "tr" {
-				(
-					"🕌 Yaklaşan Namaz".to_string(),
-					format!("{} namaz {} dakika sonra saat {}'de", translated_name, settings.pre_alert_minutes, prayer.time)
-				)
-			} else {
-				(
-					"🕌 Upcoming Prayer".to_string(),
-					format!("{} prayer in {} minutes at {}", translated_name, settings.pre_alert_minutes, prayer.time)
-				)
-			};
-            match self.send_notification(&title, &body).await {
-                Ok(_) => println!("✅ Pre-alert notification sent successfully"),
-                Err(e) => eprintln!("❌ Pre-alert notification failed: {}", e),
-            }
-        } else {
-            println!("⚠️ Notifications disabled, skipping pre-alert notification");
-        }
-        
-        // Additionally play sound if mode is sound
+        let translated_name = self.translate_prayer_name(&prayer.name, &settings.language).await;
+        println!("🔔 Firing pre-alert for {}: mode={}", translated_name, settings.pre_alert_mode);
+
+        // Pre-alert behaviors based on mode
         if settings.pre_alert_mode.as_str() == "sound" {
             println!("🔊 Playing pre-alert sound...");
             if let Err(e) = self.play_pre_alert_sound() {
@@ -281,6 +260,28 @@ impl PrayerScheduler {
             } else {
                 println!("✅ Pre-alert sound played successfully");
             }
+        } else if settings.pre_alert_mode.as_str() == "notification" {
+            if settings.notifications_enabled {
+                let (title, body) = if settings.language == "tr" {
+                    (
+                        "🕌 Yaklaşan Namaz".to_string(),
+                        format!("{} namaz {} dakika sonra saat {}'de", translated_name, settings.pre_alert_minutes, prayer.time)
+                    )
+                } else {
+                    (
+                        "🕌 Upcoming Prayer".to_string(),
+                        format!("{} prayer in {} minutes at {}", translated_name, settings.pre_alert_minutes, prayer.time)
+                    )
+                };
+                match self.send_notification(&title, &body).await {
+                    Ok(_) => println!("✅ Pre-alert notification sent successfully"),
+                    Err(e) => eprintln!("❌ Pre-alert notification failed: {}", e),
+                }
+            } else {
+                println!("⚠️ Notifications disabled, skipping pre-alert notification");
+            }
+        } else {
+            println!("ℹ️ Unknown pre-alert mode '{}', skipping", settings.pre_alert_mode);
         }
 
         Ok(())
