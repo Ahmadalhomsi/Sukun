@@ -30,6 +30,9 @@ const translations = {
 		unmute: 'Unmute',
 		quickActions: 'Quick Actions',
 		error: 'Error',
+		fetchingPrayerTimes: 'Fetching prayer times...',
+		autoFetchFailed: 'Failed to fetch prayer times. Click "Fetch Prayer Times Now" in Settings.',
+		pleaseConfigure: 'Please configure your location in Settings to load prayer times.',
 		
 		// Settings Page
 		settings: 'Settings',
@@ -104,6 +107,9 @@ const translations = {
 		unmute: 'Sesi Aç',
 		quickActions: 'Hızlı İşlemler',
 		error: 'Hata',
+		fetchingPrayerTimes: 'Namaz vakitleri alınıyor...',
+		autoFetchFailed: 'Namaz vakitleri alınamadı. Ayarlar\'dan "Namaz Vakitlerini Şimdi Al" düğmesine tıklayın.',
+		pleaseConfigure: 'Namaz vakitlerini yüklemek için lütfen Ayarlar\'dan konumunuzu yapılandırın.',
 		
 		// Ayarlar Sayfası
 		settings: 'Ayarlar',

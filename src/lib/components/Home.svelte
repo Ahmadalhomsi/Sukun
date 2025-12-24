@@ -68,17 +68,37 @@
 					const settings = await apiClient.getAllSettings();
 					const citySettings = settings.find((s) => s.key === 'city');
 					const countrySettings = settings.find((s) => s.key === 'country');
+					const useAutoLocationSetting = settings.find((s) => s.key === 'use_auto_location');
+					const latitudeSetting = settings.find((s) => s.key === 'latitude');
+					const longitudeSetting = settings.find((s) => s.key === 'longitude');
 
-					// Only proceed if we have valid location settings
-					if (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '') {
+					const useAutoLocation = useAutoLocationSetting?.value === 'true';
+					const latitude = parseFloat(latitudeSetting?.value || '0');
+					const longitude = parseFloat(longitudeSetting?.value || '0');
+
+					// Check if we have location data (either city/country or coordinates)
+					const hasLocation = (useAutoLocation && latitude !== 0 && longitude !== 0) || 
+										  (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '');
+
+					if (hasLocation) {
+						// Show loading message
+						$errorMessage = $t.fetchingPrayerTimes;
+						
 						// Add a small delay to allow app/network to fully initialize on startup
 						console.log('Waiting for app initialization before auto-fetch...');
 						await new Promise(resolve => setTimeout(resolve, 1500));
 						
 						try {
-							console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
 							const today = getTodayDate();
-							await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+							
+							if (useAutoLocation && latitude !== 0 && longitude !== 0) {
+								console.log('Auto-fetching prayer times for coordinates:', latitude, longitude);
+								await apiClient.calculateAndStorePrayerTimesFromCoordinates(latitude, longitude, today);
+							} else {
+								console.log('Auto-fetching prayer times for:', citySettings!.value, countrySettings!.value);
+								await apiClient.fetchAndStorePrayerTimes(citySettings!.value, countrySettings!.value, today);
+							}
+							
 							await loadPrayers();
 							
 							// Clear error if fetch succeeded
@@ -92,24 +112,30 @@
 							await new Promise(resolve => setTimeout(resolve, 2000));
 							try {
 								const today = getTodayDate();
-								await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+								
+								if (useAutoLocation && latitude !== 0 && longitude !== 0) {
+									await apiClient.calculateAndStorePrayerTimesFromCoordinates(latitude, longitude, today);
+								} else {
+									await apiClient.fetchAndStorePrayerTimes(citySettings!.value, countrySettings!.value, today);
+								}
+								
 								await loadPrayers();
 								
 								// Clear error if retry succeeded
 								if (prayers.length > 0) {
 									$errorMessage = null;
 								} else {
-									$errorMessage = 'Failed to fetch prayer times. Click "Fetch Prayer Times Now" in Settings.';
+									$errorMessage = $t.autoFetchFailed;
 								}
 							} catch (retryError) {
 								console.error('Auto-fetch retry failed:', retryError);
 								// Only show error if prayers still don't exist after retry
-								$errorMessage = 'Failed to fetch prayer times. Click "Fetch Prayer Times Now" in Settings.';
+								$errorMessage = $t.autoFetchFailed;
 							}
 						}
 					} else {
 						console.log('Location not configured, skipping auto-fetch');
-						$errorMessage = 'Please configure your location in Settings to load prayer times.';
+						$errorMessage = $t.pleaseConfigure;
 					}
 				} catch (error) {
 					console.error('Failed to load settings:', error);
