@@ -16,7 +16,7 @@
 	let notificationsEnabled = true;
 	let preAlertEnabled = true;
 	let preAlertMinutes = 10;
-	let preAlertMode: 'notification' | 'sound' = 'notification';
+	let preAlertMode: 'notification' | 'sound' | 'both' = 'notification';
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
 	let selectedLang: Language = 'tr';
 	let timeAdjustment = 0;
@@ -72,7 +72,13 @@
 						preAlertMinutes = parseInt(setting.value) || 10;
 						break;
 					case 'pre_prayer_alert_mode':
-						preAlertMode = setting.value === 'sound' ? 'sound' : 'notification';
+							if (setting.value === 'sound') {
+								preAlertMode = 'sound';
+							} else if (setting.value === 'both') {
+								preAlertMode = 'both';
+							} else {
+								preAlertMode = 'notification';
+							}
 						break;
 					case 'theme_mode':
 						selectedTheme = setting.value as 'light' | 'dark' | 'system';
@@ -273,6 +279,22 @@ async function useMyLocation() {
 	async function testPreAlert() {
 		if (preAlertMode === 'sound') {
 			playAlertSoundPreview();
+			return;
+		}
+
+		if (preAlertMode === 'both') {
+			// Test both sound and notification
+			playAlertSoundPreview();
+			try {
+				const result = await apiClient.testNotification();
+				console.log(result);
+				saveMessage = '✅ Test notification and sound sent!';
+				setTimeout(() => saveMessage = '', 3000);
+			} catch (error) {
+				console.error('Notification test failed:', error);
+				saveMessage = '❌ Notification test failed. Check console for details.';
+				setTimeout(() => saveMessage = '', 3000);
+			}
 			return;
 		}
 
@@ -525,6 +547,17 @@ async function useMyLocation() {
 									/>
 									<span class="text-gray-700 dark:text-gray-300">
 										{$currentLanguage === 'tr' ? 'Sesli uyarı' : 'Sound alert'}
+									</span>
+								</label>
+								<label class="flex items-center space-x-3 cursor-pointer">
+									<input
+										type="radio"
+										bind:group={preAlertMode}
+										value="both"
+										class="w-4 h-4 text-primary-500"
+									/>
+									<span class="text-gray-700 dark:text-gray-300">
+										{$currentLanguage === 'tr' ? 'Her ikisi (Bildirim + Ses)' : 'Both (Notification + Sound)'}
 									</span>
 								</label>
 							</div>

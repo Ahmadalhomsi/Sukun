@@ -253,14 +253,18 @@ impl PrayerScheduler {
         println!("🔔 Firing pre-alert for {}: mode={}", translated_name, settings.pre_alert_mode);
 
         // Pre-alert behaviors based on mode
-        if settings.pre_alert_mode.as_str() == "sound" {
+        let mode = settings.pre_alert_mode.as_str();
+        
+        if mode == "sound" || mode == "both" {
             println!("🔊 Playing pre-alert sound...");
             if let Err(e) = self.play_pre_alert_sound() {
                 eprintln!("❌ Pre-alert sound failed: {}", e);
             } else {
                 println!("✅ Pre-alert sound played successfully");
             }
-        } else if settings.pre_alert_mode.as_str() == "notification" {
+        }
+        
+        if mode == "notification" || mode == "both" {
             if settings.notifications_enabled {
                 let (title, body) = if settings.language == "tr" {
                     (
@@ -280,7 +284,9 @@ impl PrayerScheduler {
             } else {
                 println!("⚠️ Notifications disabled, skipping pre-alert notification");
             }
-        } else {
+        }
+        
+        if mode != "sound" && mode != "notification" && mode != "both" {
             println!("ℹ️ Unknown pre-alert mode '{}', skipping", settings.pre_alert_mode);
         }
 
