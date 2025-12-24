@@ -21,12 +21,16 @@
 	async function loadPrayers() {
 		try {
 			$isLoadingPrayers = true;
-			$errorMessage = null;
 			prayers = await apiClient.getTodaysPrayers();
 
 			// Find next prayer
 			const upcoming = prayers.find((p) => !isTimeInPast(p.time));
 			nextPrayer = upcoming || null;
+			
+			// Clear error if prayers were loaded successfully
+			if (prayers.length > 0) {
+				$errorMessage = null;
+			}
 		} catch (error) {
 			$errorMessage = error instanceof Error ? error.message : 'Failed to load prayers';
 			console.error('Error loading prayers:', error);
@@ -52,43 +56,64 @@
 				// Load existing prayers first
 				await loadPrayers();
 
-				// Auto-fetch prayers on first load if location is configured but no prayers exist
-				if (prayers.length === 0) {
-					try {
-						const settings = await apiClient.getAllSettings();
-						const citySettings = settings.find((s) => s.key === 'city');
-						const countrySettings = settings.find((s) => s.key === 'country');
+				// If prayers exist, clear any previous error messages and we're done
+				if (prayers.length > 0) {
+					$errorMessage = null;
+					console.log('Prayer times already loaded from database');
+					return;
+				}
 
-						// Only proceed if we have valid location settings
-						if (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '') {
+				// Auto-fetch prayers on first load if location is configured but no prayers exist
+				try {
+					const settings = await apiClient.getAllSettings();
+					const citySettings = settings.find((s) => s.key === 'city');
+					const countrySettings = settings.find((s) => s.key === 'country');
+
+					// Only proceed if we have valid location settings
+					if (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '') {
+						// Add a small delay to allow app/network to fully initialize on startup
+						console.log('Waiting for app initialization before auto-fetch...');
+						await new Promise(resolve => setTimeout(resolve, 1500));
+						
+						try {
+							console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
+							const today = getTodayDate();
+							await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
+							await loadPrayers();
+							
+							// Clear error if fetch succeeded
+							if (prayers.length > 0) {
+								$errorMessage = null;
+							}
+						} catch (error) {
+							console.error('Auto-fetch failed:', error);
+							// Wait a bit and retry once - sometimes this fails on first startup due to timing
+							console.log('Retrying auto-fetch after delay...');
+							await new Promise(resolve => setTimeout(resolve, 2000));
 							try {
-								console.log('Auto-fetching prayer times for:', citySettings.value, countrySettings.value);
 								const today = getTodayDate();
 								await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
 								await loadPrayers();
-							} catch (error) {
-								console.error('Auto-fetch failed:', error);
-								// Wait a bit and retry once - sometimes this fails on first startup due to timing
-								console.log('Retrying auto-fetch after delay...');
-								await new Promise(resolve => setTimeout(resolve, 2000));
-								try {
-									const today = getTodayDate();
-									await apiClient.fetchAndStorePrayerTimes(citySettings.value, countrySettings.value, today);
-									await loadPrayers();
-								} catch (retryError) {
-									console.error('Auto-fetch retry failed:', retryError);
-									// Only show error if it fails twice - might be a real issue
+								
+								// Clear error if retry succeeded
+								if (prayers.length > 0) {
+									$errorMessage = null;
+								} else {
 									$errorMessage = 'Failed to fetch prayer times. Click "Fetch Prayer Times Now" in Settings.';
 								}
+							} catch (retryError) {
+								console.error('Auto-fetch retry failed:', retryError);
+								// Only show error if prayers still don't exist after retry
+								$errorMessage = 'Failed to fetch prayer times. Click "Fetch Prayer Times Now" in Settings.';
 							}
-						} else {
-							console.log('Location not configured, skipping auto-fetch');
-							$errorMessage = 'Please configure your location in Settings to load prayer times.';
 						}
-					} catch (error) {
-						console.error('Failed to load settings:', error);
-						// Don't show error on settings load failure - just wait for user to configure
+					} else {
+						console.log('Location not configured, skipping auto-fetch');
+						$errorMessage = 'Please configure your location in Settings to load prayer times.';
 					}
+				} catch (error) {
+					console.error('Failed to load settings:', error);
+					// Don't show error on settings load failure - just wait for user to configure
 				}
 			} catch (error) {
 				console.error('Failed to initialize home:', error);
