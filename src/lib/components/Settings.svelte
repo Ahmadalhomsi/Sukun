@@ -16,7 +16,7 @@
 	let notificationsEnabled = true;
 	let preAlertEnabled = true;
 	let preAlertMinutes = 10;
-	let preAlertMode: 'notification' | 'sound' | 'both' = 'notification';
+	let preAlertMode: 'notification' | 'sound' | 'both' = 'both';
 	let selectedTheme: 'light' | 'dark' | 'system' = 'system';
 	let selectedLang: Language = 'tr';
 	let timeAdjustment = 0;
@@ -74,10 +74,11 @@
 					case 'pre_prayer_alert_mode':
 							if (setting.value === 'sound') {
 								preAlertMode = 'sound';
-							} else if (setting.value === 'both') {
-								preAlertMode = 'both';
-							} else {
-								preAlertMode = 'notification';
+						} else if (setting.value === 'notification') {
+							preAlertMode = 'notification';
+						} else {
+							// Default to 'both' for new users or if value is 'both'
+							preAlertMode = 'both';
 							}
 						break;
 					case 'theme_mode':
