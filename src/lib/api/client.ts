@@ -117,6 +117,13 @@ export class TauriApiClient {
 	}
 
 	/**
+	 * Clear all prayer logs
+	 */
+	async clearLogs(): Promise<void> {
+		await invoke('clear_logs');
+	}
+
+	/**
 	 * Set a setting value
 	 */
 	async setSetting(key: string, value: string): Promise<void> {
