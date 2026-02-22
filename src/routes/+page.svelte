@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { currentView } from '$lib/stores';
+	import { t } from '$lib/i18n';
 	import Home from '$lib/components/Home.svelte';
 	import Settings from '$lib/components/Settings.svelte';
 	import Logs from '$lib/components/Logs.svelte';
