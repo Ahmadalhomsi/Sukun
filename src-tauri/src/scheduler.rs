@@ -20,6 +20,7 @@ struct AlertSettings {
     pre_alert_mode: String,
     notifications_enabled: bool,
 	language: String,
+	auto_mute_enabled: bool,
 }
 
 pub struct PrayerScheduler {
@@ -143,10 +144,14 @@ impl PrayerScheduler {
         println!("Notifications enabled: {}", settings.notifications_enabled);
 
         // Step 1: Mute system audio FIRST
-        if let Err(e) = audio::mute_system_audio() {
-            eprintln!("Failed to mute audio: {}", e);
+        if settings.auto_mute_enabled {
+            if let Err(e) = audio::mute_system_audio() {
+                eprintln!("Failed to mute audio: {}", e);
+            } else {
+                println!("🔇 Audio muted successfully");
+            }
         } else {
-            println!("🔇 Audio muted successfully");
+            println!("🔇 Auto-mute disabled in settings, skipping mute");
         }
 
         // Step 2: Play adhan sound (it will play even when other apps are muted)
@@ -348,9 +353,16 @@ impl PrayerScheduler {
 			.await?
 			.unwrap_or_else(|| "en".to_string());
 
+		let auto_mute_enabled = self
+			.db
+			.get_setting("auto_mute")
+			.await?
+			.map(|v| v == "true")
+			.unwrap_or(true);
+
 		println!(
-			"⚙️  Loaded settings: pre_alert_enabled={}, pre_alert_minutes={}, pre_alert_mode={}, notifications_enabled={}, language={}",
-			pre_alert_enabled, pre_alert_minutes, pre_alert_mode, notifications_enabled, language
+			"⚙️  Loaded settings: pre_alert_enabled={}, pre_alert_minutes={}, pre_alert_mode={}, notifications_enabled={}, language={}, auto_mute_enabled={}",
+			pre_alert_enabled, pre_alert_minutes, pre_alert_mode, notifications_enabled, language, auto_mute_enabled
 		);
 
 		Ok(AlertSettings {
@@ -359,6 +371,7 @@ impl PrayerScheduler {
 			pre_alert_mode,
 			notifications_enabled,
 			language,
+			auto_mute_enabled,
 		})
 	}
 
