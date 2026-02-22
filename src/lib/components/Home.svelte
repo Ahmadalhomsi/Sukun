@@ -81,8 +81,8 @@
 										  (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '');
 
 					if (hasLocation) {
-						// Show loading message
-						$errorMessage = $t.fetchingPrayerTimes;
+						// Show loading spinner
+						$isLoadingPrayers = true;
 						
 						// Add a small delay to allow app/network to fully initialize on startup
 						console.log('Waiting for app initialization before auto-fetch...');
@@ -131,6 +131,7 @@
 								console.error('Auto-fetch retry failed:', retryError);
 								// Only show error if prayers still don't exist after retry
 								$errorMessage = $t.autoFetchFailed;
+								$isLoadingPrayers = false;
 							}
 						}
 					} else {

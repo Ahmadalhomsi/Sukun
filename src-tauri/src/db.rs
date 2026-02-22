@@ -183,6 +183,27 @@ impl Database {
         Ok(logs)
     }
 
+    pub async fn clear_all_logs(&self) -> Result<()> {
+        sqlx::query("DELETE FROM prayer_logs")
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn delete_old_logs(&self, days: i64) -> Result<()> {
+        let date_threshold = chrono::Local::now()
+            .checked_sub_signed(chrono::Duration::days(days))
+            .unwrap_or_else(chrono::Local::now)
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+
+        sqlx::query("DELETE FROM prayer_logs WHERE executed_at < ?")
+            .bind(date_threshold)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     // Settings operations
     pub async fn set_setting(&self, key: &str, value: &str) -> Result<()> {
         sqlx::query(
