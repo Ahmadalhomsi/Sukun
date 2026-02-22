@@ -8,6 +8,7 @@
 
 	let logs = $state<PrayerLog[]>([]);
 	let displayLimit = $state(50);
+	let isClearing = $state(false);
 
 	async function loadLogs() {
 		try {
@@ -17,6 +18,24 @@
 			console.error('Error loading logs:', error);
 		} finally {
 			$isLoadingLogs = false;
+		}
+	}
+
+	async function clearLogs() {
+		if (!confirm($currentLanguage === 'tr' ? 'Tüm kayıtları silmek istediğinizden emin misiniz?' : 'Are you sure you want to clear all logs?')) {
+			return;
+		}
+		
+		try {
+			isClearing = true;
+			await apiClient.clearLogs();
+			logs = [];
+			// Reload to confirm empty state
+			await loadLogs();
+		} catch (error) {
+			console.error('Error clearing logs:', error);
+		} finally {
+			isClearing = false;
 		}
 	}
 
@@ -47,16 +66,28 @@
 				{$t.historyOfActions}
 			</p>
 		</div>
-		<button
-			onclick={loadLogs}
-			class="btn-secondary"
-			disabled={$isLoadingLogs}
-		>
-			<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-			</svg>
-			{$t.refresh}
-		</button>
+		<div class="flex space-x-2">
+			<button
+				onclick={clearLogs}
+				class="btn-secondary text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/20"
+				disabled={$isLoadingLogs || isClearing || logs.length === 0}
+			>
+				<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+				</svg>
+				{$currentLanguage === 'tr' ? 'Temizle' : 'Clear'}
+			</button>
+			<button
+				onclick={loadLogs}
+				class="btn-secondary"
+				disabled={$isLoadingLogs || isClearing}
+			>
+				<svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+				</svg>
+				{$t.refresh}
+			</button>
+		</div>
 	</div>
 
 	{#if $isLoadingLogs}

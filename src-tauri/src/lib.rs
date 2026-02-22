@@ -140,6 +140,15 @@ async fn get_recent_logs(
 }
 
 #[tauri::command]
+async fn clear_logs(state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .db
+        .clear_all_logs()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn set_setting(
     state: State<'_, AppState>,
     key: String,
@@ -345,6 +354,7 @@ pub fn run() {
             });
 
             let db = Arc::new(db);
+            let db_original = db.clone(); // Keep a clone for later use in cleanup
 
             app.manage(AppState { db: db.clone() });
 
@@ -381,6 +391,16 @@ pub fn run() {
                 }
             });
 
+            // Cleanup old logs on startup (keep last 30 days)
+            let db_clone_logs = db_original.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = db_clone_logs.delete_old_logs(30).await {
+                    eprintln!("❌ Failed to clean up old logs: {}", e);
+                } else {
+                    println!("✅ Old logs cleaned up (kept last 30 days)");
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -390,6 +410,7 @@ pub fn run() {
             get_prayer_times_for_date,
             get_todays_prayers,
             get_recent_logs,
+            clear_logs,
             set_setting,
             get_setting,
             get_all_settings,
