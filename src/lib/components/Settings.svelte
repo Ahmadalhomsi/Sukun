@@ -200,6 +200,7 @@ async function useMyLocation() {
 			await apiClient.setSetting('time_adjustment', timeAdjustment.toString());
 			await apiClient.setSetting('unmute_after_minutes', unmuteAfterMinutes.toString());
 			await apiClient.setSetting('language', selectedLang);
+			await apiClient.setSetting('calculation_method', 'Turkey');
 
 			// Update local stores
 			$appConfig = {
@@ -656,6 +657,7 @@ async function useMyLocation() {
 					</div>
 					<button
 						onclick={toggleAutoStart}
+						aria-label={autoStartEnabled ? 'Disable auto-start' : 'Enable auto-start'}
 						class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
 						class:bg-primary-600={autoStartEnabled}
 						class:bg-gray-300={!autoStartEnabled}
@@ -688,20 +690,5 @@ async function useMyLocation() {
 			</button>
 		</div>
 
-		<!-- Debug: Clear Database -->
-		<div class="mt-4">
-			<button
-				onclick={async () => {
-					if (confirm('Clear all prayer times from database?')) {
-						await apiClient.clearAllPrayerTimes();
-						saveMessage = 'Database cleared';
-						setTimeout(() => saveMessage = '', 2000);
-					}
-				}}
-				class="btn-secondary w-full text-sm text-red-600 dark:text-red-400"
-			>
-				🗑️ Clear Prayer Database (Debug)
-			</button>
-		</div>
 	</div>
 </div>

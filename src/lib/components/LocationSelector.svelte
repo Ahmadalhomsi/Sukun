@@ -108,9 +108,7 @@
 					{#each filteredCities as city}
 						<button
 							onclick={() => handleCityClick(city.name)}
-							class="p-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-primary-50 hover:border-primary-500 transition-colors"
-							class:bg-primary-100={selectedCity === city.name}
-							class:border-primary-500={selectedCity === city.name}
+							class="p-3 text-left rounded-lg border transition-all duration-150 {selectedCity === city.name ? 'border-primary-500 bg-primary-50 dark:bg-gray-700 text-primary-700 dark:text-primary-300' : 'border-gray-200 dark:border-gray-700 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-gray-700'}"
 						>
 							<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
 								{city.name}
@@ -122,11 +120,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	.input-field:focus {
-		outline: none;
-		border-color: rgb(var(--color-primary-500));
-		box-shadow: 0 0 0 3px rgb(var(--color-primary-500) / 0.2);
-	}
-</style>
