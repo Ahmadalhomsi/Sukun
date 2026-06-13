@@ -1,5 +1,6 @@
 use crate::audio;
 use crate::db::{Database, PrayerLog, PrayerTime};
+use crate::api;
 use anyhow::Result;
 use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use rodio::{Decoder, OutputStream, Sink};
@@ -68,6 +69,83 @@ impl PrayerScheduler {
             pre_alerted.clear();
             main_triggered.clear();
             *current_day = today.clone();
+
+            // Auto-fetch prayer times for the new day (critical for headless mode)
+            if let Ok(prayers) = self.db.get_prayer_times_for_date(&today).await {
+                if prayers.is_empty() {
+                    let use_auto = self.db.get_setting("use_auto_location")
+                        .await.ok().flatten()
+                        .map(|v| v == "true")
+                        .unwrap_or(false);
+
+                    let lat = self.db.get_setting("latitude")
+                        .await.ok().flatten()
+                        .and_then(|v| v.parse::<f64>().ok())
+                        .unwrap_or(0.0);
+
+                    let lon = self.db.get_setting("longitude")
+                        .await.ok().flatten()
+                        .and_then(|v| v.parse::<f64>().ok())
+                        .unwrap_or(0.0);
+
+                    let method: u32 = self.db.get_setting("calculation_method")
+                        .await.ok().flatten()
+                        .and_then(|v| match v.as_str() {
+                            "Turkey" => Some(13),
+                            "MuslimWorldLeague" => Some(3),
+                            "Egyptian" => Some(5),
+                            "Karachi" => Some(1),
+                            "UmmAlQura" => Some(4),
+                            "Dubai" => Some(12),
+                            "Qatar" => Some(11),
+                            "Kuwait" => Some(9),
+                            "MoonsightingCommittee" => Some(7),
+                            "Singapore" => Some(14),
+                            "NorthAmerica" => Some(2),
+                            _ => None,
+                        })
+                        .unwrap_or(13);
+
+                    let fetched = if use_auto && lat != 0.0 && lon != 0.0 {
+                        println!("📡 Auto-fetching by coordinates: {}, {} (method={})", lat, lon, method);
+                        api::fetch_prayer_times_by_coords(lat, lon, &today, method).await
+                    } else {
+                        let city = self.db.get_setting("city").await.ok().flatten();
+                        let country = self.db.get_setting("country").await.ok().flatten();
+                        match (city, country) {
+                            (Some(c), Some(co)) => {
+                                println!("📡 Auto-fetching by city: {}, {}", c, co);
+                                api::fetch_prayer_times("", &c, &co, &today).await
+                            }
+                            _ => {
+                                eprintln!("❌ No location settings for auto-fetch");
+                                return Ok(());
+                            }
+                        }
+                    };
+
+                    match fetched {
+                        Ok(response) => {
+                            let prayer_times: Vec<PrayerTime> = response.prayers
+                                .into_iter()
+                                .map(|p| PrayerTime {
+                                    id: None,
+                                    name: p.name,
+                                    time: p.time,
+                                    date: response.date.clone(),
+                                    created_at: None,
+                                })
+                                .collect();
+                            if let Err(e) = self.db.insert_prayer_times(prayer_times).await {
+                                eprintln!("❌ Failed to store auto-fetched prayer times: {}", e);
+                            } else {
+                                println!("✅ Auto-fetched and stored prayer times for {}", today);
+                            }
+                        }
+                        Err(e) => eprintln!("❌ Failed to auto-fetch prayer times: {}", e),
+                    }
+                }
+            }
         }
 
         let settings = self.load_alert_settings().await?;

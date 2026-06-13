@@ -208,15 +208,15 @@ async fn test_notification(app_handle: AppHandle) -> Result<String, String> {
 fn enable_auto_start(_app_handle: AppHandle) -> Result<bool, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let app_name = "Sukun";
-    
+
     let auto = AutoLaunch::new(
         app_name,
         &exe.to_string_lossy(),
-        &[] as &[&str],
+        &["--hidden"] as &[&str],
     );
-    
+
     auto.enable().map_err(|e| e.to_string())?;
-    println!("✅ Auto-start enabled");
+    println!("✅ Auto-start enabled (hidden mode)");
     Ok(true)
 }
 
@@ -224,13 +224,13 @@ fn enable_auto_start(_app_handle: AppHandle) -> Result<bool, String> {
 fn disable_auto_start(_app_handle: AppHandle) -> Result<bool, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let app_name = "Sukun";
-    
+
     let auto = AutoLaunch::new(
         app_name,
         &exe.to_string_lossy(),
-        &[] as &[&str],
+        &["--hidden"] as &[&str],
     );
-    
+
     auto.disable().map_err(|e| e.to_string())?;
     println!("❌ Auto-start disabled");
     Ok(false)
@@ -240,13 +240,13 @@ fn disable_auto_start(_app_handle: AppHandle) -> Result<bool, String> {
 fn is_auto_start_enabled(_app_handle: AppHandle) -> Result<bool, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let app_name = "Sukun";
-    
+
     let auto = AutoLaunch::new(
         app_name,
         &exe.to_string_lossy(),
-        &[] as &[&str],
+        &["--hidden"] as &[&str],
     );
-    
+
     auto.is_enabled().map_err(|e| e.to_string())
 }
 
@@ -333,15 +333,19 @@ fn ensure_main_window(app: &AppHandle) -> bool {
     true
 }
 
+fn is_hidden_launch() -> bool {
+    std::env::args().any(|arg| arg == "--hidden")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let context = tauri::generate_context!();
+    let start_hidden = is_hidden_launch();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
-        .setup(|app| {
-            // Initialize database
+        .setup(move |app| {
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
 
@@ -354,26 +358,116 @@ pub fn run() {
             });
 
             let db = Arc::new(db);
-            let db_original = db.clone(); // Keep a clone for later use in cleanup
+            let db_original = db.clone();
 
             app.manage(AppState { db: db.clone() });
 
-            // Setup system tray
             setup_system_tray(app.handle())?;
 
-            // Check and fetch today's prayer times on startup if empty
+            if !start_hidden {
+                ensure_main_window(app.handle());
+            } else {
+                println!("🤫 Started in background mode (system tray only)");
+            }
+
+            // Migrate auto-start registry: if enabled without --hidden, re-register with it
+            if let Ok(exe) = std::env::current_exe() {
+                let auto_old = AutoLaunch::new("Sukun", &exe.to_string_lossy(), &[] as &[&str]);
+                let auto_new = AutoLaunch::new("Sukun", &exe.to_string_lossy(), &["--hidden"]);
+                if let Ok(true) = auto_old.is_enabled() {
+                    let _ = auto_old.disable();
+                    let _ = auto_new.enable();
+                    println!("✅ Migrated auto-start to include --hidden flag");
+                }
+            }
+
+            // Fetch today's prayer times on startup if missing (essential for hidden mode)
             let db_clone = db.clone();
+            let start_hidden_clone = start_hidden;
             tauri::async_runtime::spawn(async move {
                 let today = Local::now().format("%Y-%m-%d").to_string();
-                
+
                 match db_clone.get_prayer_times_for_date(&today).await {
-                    Ok(prayers) => {
-                        if prayers.is_empty() {
-                            println!("⚠️  No prayer times found for today ({}). Waiting for frontend to fetch...", today);
-                            // Don't auto-fetch on backend - let frontend handle it
-                            // This avoids conflicts and race conditions
+                    Ok(prayers) if !prayers.is_empty() => {
+                        println!("✅ Found {} prayer times for today ({})", prayers.len(), today);
+                    }
+                    Ok(_) => {
+                        println!("⚠️  No prayer times for today ({})", today);
+
+                        let use_auto = db_clone.get_setting("use_auto_location")
+                            .await.ok().flatten()
+                            .map(|v| v == "true")
+                            .unwrap_or(false);
+
+                        let lat = db_clone.get_setting("latitude")
+                            .await.ok().flatten()
+                            .and_then(|v| v.parse::<f64>().ok())
+                            .unwrap_or(0.0);
+
+                        let lon = db_clone.get_setting("longitude")
+                            .await.ok().flatten()
+                            .and_then(|v| v.parse::<f64>().ok())
+                            .unwrap_or(0.0);
+
+                        let method: u32 = db_clone.get_setting("calculation_method")
+                            .await.ok().flatten()
+                            .and_then(|v| match v.as_str() {
+                                "Turkey" => Some(13),
+                                "MuslimWorldLeague" => Some(3),
+                                "Egyptian" => Some(5),
+                                "Karachi" => Some(1),
+                                "UmmAlQura" => Some(4),
+                                "Dubai" => Some(12),
+                                "Qatar" => Some(11),
+                                "Kuwait" => Some(9),
+                                "MoonsightingCommittee" => Some(7),
+                                "Singapore" => Some(14),
+                                "NorthAmerica" => Some(2),
+                                _ => None,
+                            })
+                            .unwrap_or(13);
+
+                        let fetched = if use_auto && lat != 0.0 && lon != 0.0 {
+                            println!("📡 Fetching prayer times by coordinates: {}, {} (method={})", lat, lon, method);
+                            api::fetch_prayer_times_by_coords(lat, lon, &today, method).await
                         } else {
-                            println!("✅ Found {} prayer times for today ({})", prayers.len(), today);
+                            let city = db_clone.get_setting("city").await.ok().flatten();
+                            let country = db_clone.get_setting("country").await.ok().flatten();
+                            match (city, country) {
+                                (Some(city), Some(country)) => {
+                                    println!("📡 Fetching prayer times by city: {}, {}", city, country);
+                                    api::fetch_prayer_times("", &city, &country, &today).await
+                                }
+                                _ => {
+                                    if start_hidden_clone {
+                                        eprintln!("❌ No location settings found. Cannot fetch prayer times.");
+                                    }
+                                    return;
+                                }
+                            }
+                        };
+
+                        match fetched {
+                            Ok(response) => {
+                                let prayer_times: Vec<PrayerTime> = response.prayers
+                                    .into_iter()
+                                    .map(|p| PrayerTime {
+                                        id: None,
+                                        name: p.name,
+                                        time: p.time,
+                                        date: response.date.clone(),
+                                        created_at: None,
+                                    })
+                                    .collect();
+
+                                let _ = db_clone.delete_prayer_times_for_date(&today).await;
+
+                                match db_clone.insert_prayer_times(prayer_times).await {
+                                    Ok(_) => println!("✅ Prayer times fetched and stored for {}", today),
+                                    Err(e) => eprintln!("❌ Failed to store prayer times: {}", e),
+                                }
+                            }
+                            Err(e) => eprintln!("❌ Failed to fetch prayer times: {}", e),
                         }
                     }
                     Err(e) => {

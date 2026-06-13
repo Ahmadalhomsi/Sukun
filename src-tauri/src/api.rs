@@ -104,6 +104,53 @@ pub async fn fetch_prayer_times(
     })
 }
 
+/// Fetch prayer times from Aladhan API using coordinates
+pub async fn fetch_prayer_times_by_coords(
+    latitude: f64,
+    longitude: f64,
+    date: &str,
+    method: u32,
+) -> Result<PrayerTimesResponse> {
+    let client = reqwest::Client::new();
+
+    let parsed_date = NaiveDate::parse_from_str(date, "%Y-%m-%d")?;
+    let day = parsed_date.format("%d").to_string();
+    let month = parsed_date.format("%m").to_string();
+    let year = parsed_date.format("%Y").to_string();
+
+    let url = format!(
+        "https://api.aladhan.com/v1/timings/{}-{}-{}?latitude={}&longitude={}&method={}",
+        day, month, year, latitude, longitude, method
+    );
+
+    let response = client
+        .get(&url)
+        .send()
+        .await?
+        .json::<AladhanResponse>()
+        .await?;
+
+    let timings = response.data.timings;
+
+    let clean_time = |time: &str| -> String {
+        time.split_whitespace().next().unwrap_or(time).to_string()
+    };
+
+    let prayers = vec![
+        Prayer { name: "Fajr".to_string(), time: clean_time(&timings.Fajr) },
+        Prayer { name: "Sunrise".to_string(), time: clean_time(&timings.Sunrise) },
+        Prayer { name: "Dhuhr".to_string(), time: clean_time(&timings.Dhuhr) },
+        Prayer { name: "Asr".to_string(), time: clean_time(&timings.Asr) },
+        Prayer { name: "Maghrib".to_string(), time: clean_time(&timings.Maghrib) },
+        Prayer { name: "Isha".to_string(), time: clean_time(&timings.Isha) },
+    ];
+
+    Ok(PrayerTimesResponse {
+        date: date.to_string(),
+        prayers,
+    })
+}
+
 /// Validate prayer time format (HH:MM)
 #[allow(dead_code)]
 pub fn validate_time_format(time: &str) -> bool {

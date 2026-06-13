@@ -10,17 +10,7 @@
     "frontendDist": "../build"
   },
   "app": {
-    "windows": [
-      {
-        "title": "Sukun - Prayer Times Manager",
-        "width": 1060,
-        "height": 700,
-        "resizable": true,
-        "center": true,
-        "decorations": true,
-        "skipTaskbar": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     },
