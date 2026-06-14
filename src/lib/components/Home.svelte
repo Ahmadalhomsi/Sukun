@@ -63,9 +63,10 @@
 					return;
 				}
 
-				// Auto-fetch prayers on first load if location is configured but no prayers exist
+			// Auto-fetch prayers on first load if location is configured but no prayers exist
 				try {
 					const settings = await apiClient.getAllSettings();
+					const setupDone = settings.find((s) => s.key === 'setup_completed');
 					const citySettings = settings.find((s) => s.key === 'city');
 					const countrySettings = settings.find((s) => s.key === 'country');
 					const useAutoLocationSetting = settings.find((s) => s.key === 'use_auto_location');
@@ -76,66 +77,38 @@
 					const latitude = parseFloat(latitudeSetting?.value || '0');
 					const longitude = parseFloat(longitudeSetting?.value || '0');
 
-					// Check if we have location data (either city/country or coordinates)
-					const hasLocation = (useAutoLocation && latitude !== 0 && longitude !== 0) || 
-										  (citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '');
+					const hasCoords = useAutoLocation && latitude !== 0 && longitude !== 0;
+					const hasCityCountry = citySettings?.value && countrySettings?.value && citySettings.value !== '' && countrySettings.value !== '';
 
-					if (hasLocation) {
-						// Show loading spinner
+					if (hasCoords || hasCityCountry) {
 						$isLoadingPrayers = true;
-						
-						// Add a small delay to allow app/network to fully initialize on startup
-						console.log('Waiting for app initialization before auto-fetch...');
-						await new Promise(resolve => setTimeout(resolve, 1500));
-						
-						try {
+
+						const tryFetch = async () => {
 							const today = getTodayDate();
-							
-							if (useAutoLocation && latitude !== 0 && longitude !== 0) {
-								console.log('Auto-fetching prayer times for coordinates:', latitude, longitude);
+							if (hasCoords) {
 								await apiClient.calculateAndStorePrayerTimesFromCoordinates(latitude, longitude, today);
 							} else {
-								console.log('Auto-fetching prayer times for:', citySettings!.value, countrySettings!.value);
-								await apiClient.fetchAndStorePrayerTimes(citySettings!.value, countrySettings!.value, today);
+								await apiClient.calculateAndStorePrayerTimes(citySettings!.value, countrySettings!.value, today);
 							}
-							
 							await loadPrayers();
-							
-							// Clear error if fetch succeeded
-							if (prayers.length > 0) {
-								$errorMessage = null;
-							}
-						} catch (error) {
-							console.error('Auto-fetch failed:', error);
-							// Wait a bit and retry once - sometimes this fails on first startup due to timing
-							console.log('Retrying auto-fetch after delay...');
-							await new Promise(resolve => setTimeout(resolve, 2000));
+						};
+
+						try {
+							await new Promise(resolve => setTimeout(resolve, 1500));
+							await tryFetch();
+						} catch (firstError) {
+							console.error('Auto-fetch failed, retrying...', firstError);
+							await new Promise(resolve => setTimeout(resolve, 3000));
 							try {
-								const today = getTodayDate();
-								
-								if (useAutoLocation && latitude !== 0 && longitude !== 0) {
-									await apiClient.calculateAndStorePrayerTimesFromCoordinates(latitude, longitude, today);
-								} else {
-									await apiClient.fetchAndStorePrayerTimes(citySettings!.value, countrySettings!.value, today);
-								}
-								
-								await loadPrayers();
-								
-								// Clear error if retry succeeded
-								if (prayers.length > 0) {
-									$errorMessage = null;
-								} else {
-									$errorMessage = $t.autoFetchFailed;
-								}
+								await tryFetch();
 							} catch (retryError) {
 								console.error('Auto-fetch retry failed:', retryError);
-								// Only show error if prayers still don't exist after retry
-								$errorMessage = $t.autoFetchFailed;
-								$isLoadingPrayers = false;
+								if (prayers.length === 0) {
+									$errorMessage = $t.autoFetchFailed;
+								}
 							}
 						}
-					} else {
-						console.log('Location not configured, skipping auto-fetch');
+					} else if (!setupDone || setupDone.value !== 'true') {
 						$errorMessage = $t.pleaseConfigure;
 					}
 				} catch (error) {
@@ -236,15 +209,25 @@
 			</button>
 		</div>
 
-		{#if prayers.length === 0}
+		{#if prayers.length === 0 && !$isLoadingPrayers}
 			<div class="text-center py-12">
 				<svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
 				<p class="text-gray-600 dark:text-gray-400 mb-4">{$t.noPrayerTimes}</p>
-				<p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-					{$t.configureLocation}
-				</p>
+	{#if $errorMessage && prayers.length === 0 && !$isLoadingPrayers}
+					<p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
+						{$errorMessage}
+					</p>
+				{/if}
+			</div>
+		{:else if prayers.length === 0 && $isLoadingPrayers}
+			<div class="flex items-center justify-center gap-3 py-12">
+				<svg class="animate-spin w-6 h-6 text-primary-500" fill="none" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+				</svg>
+				<p class="text-gray-500 dark:text-gray-400">{$t.fetchingPrayerTimes}</p>
 			</div>
 		{:else}
 			<div class="space-y-3">

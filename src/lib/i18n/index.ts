@@ -3,7 +3,7 @@ import type { Writable } from 'svelte/store';
 
 export type Language = 'en' | 'tr';
 
-export const currentLanguage: Writable<Language> = writable('tr'); // Default to Turkish
+export const currentLanguage: Writable<Language> = writable('en');
 
 const translations = {
 	en: {

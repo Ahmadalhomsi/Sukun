@@ -21,6 +21,7 @@
 	let isProcessing = $state(false);
 	let errorMessage = $state('');
 	let locationPicked = $state(false);
+	let showManualPicker = $state(false);
 
 	let filteredCities = $derived(
 		selectedCountryData.cities.filter((c) =>
@@ -129,7 +130,17 @@
 			await apiClient.setSetting('setup_completed', 'true');
 
 			$themeMode = selectedTheme;
+		} catch (error) {
+			errorMessage = selectedLang === 'tr'
+				? 'Ayarlar kaydedilemedi. Lütfen tekrar deneyin.'
+				: 'Failed to save settings. Please try again.';
+			isProcessing = false;
+			return;
+		}
 
+		// Fetch prayer times separately — don't block setup if this fails
+		// The backend auto-fetch will handle it on next startup
+		try {
 			const today = getTodayDate();
 			if (useAutoLocation && currentLatitude !== 0 && currentLongitude !== 0) {
 				await apiClient.calculateAndStorePrayerTimesFromCoordinates(
@@ -137,17 +148,14 @@
 					currentLongitude,
 					today
 				);
-			} else if (city && country) {
+			} else if (city && country && locationMode === 'manual') {
 				await apiClient.calculateAndStorePrayerTimes(city, country, today);
 			}
-
-			window.dispatchEvent(new CustomEvent('setup-complete'));
-		} catch (error) {
-			errorMessage = selectedLang === 'tr'
-				? 'Bir hata oluştu. Lütfen tekrar deneyin.'
-				: 'An error occurred. Please try again.';
-			isProcessing = false;
+		} catch (fetchError) {
+			console.error('Prayer fetch failed during setup, backend will retry:', fetchError);
 		}
+
+		window.dispatchEvent(new CustomEvent('setup-complete'));
 	}
 
 	const steps = [
@@ -303,57 +311,78 @@
 						</div>
 					{/if}
 
-					<!-- Divider -->
-					<div class="flex items-center gap-3 my-5">
-						<div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-						<span class="text-xs text-gray-400 dark:text-gray-500">
-							{selectedLang === 'tr' ? 'veya şehir seçin' : 'or pick a city'}
-						</span>
-						<div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-					</div>
-
-					<!-- Country Select -->
-					<div class="mb-3">
-						<label for="wiz-country" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-							{$t.country}
-						</label>
-						<select
-							id="wiz-country"
-							value={selectedCountryData.name}
-							onchange={(e) => handleCountryChange(e.currentTarget.value)}
-							class="input-field"
-						>
-							{#each countries as c}
-								<option value={c.name}>{c.name}</option>
-							{/each}
-						</select>
-					</div>
-
-					<!-- City Search -->
-					<div class="mb-3">
-						<label for="wiz-city-search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-							{$t.city}
-						</label>
-						<input
-							id="wiz-city-search"
-							type="text"
-							bind:value={searchCity}
-							placeholder={selectedLang === 'tr' ? 'Şehir ara...' : 'Search cities...'}
-							class="input-field"
-						/>
-					</div>
-
-					<!-- City Grid -->
-					<div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
-						{#each filteredCities as c}
+					<!-- Manual City Picker Toggle -->
+					{#if !showManualPicker}
+						<div class="text-center mt-2">
 							<button
-								onclick={() => pickCity(c.name)}
-								class="p-2.5 text-left rounded-lg border-2 transition-all duration-150 {city === c.name && locationMode === 'manual' ? 'border-primary-500 bg-primary-50 dark:bg-gray-700 text-primary-700 dark:text-primary-300' : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'}"
+								onclick={() => showManualPicker = true}
+								class="text-sm text-primary-500 hover:text-primary-600 font-medium transition-colors"
 							>
-								<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{c.name}</span>
+								{selectedLang === 'tr' ? 'Şehir listesinden seç' : 'Choose from city list'}
 							</button>
-						{/each}
-					</div>
+						</div>
+					{/if}
+
+					{#if showManualPicker}
+						<!-- Divider -->
+						<div class="flex items-center gap-3 my-5">
+							<div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+							<span class="text-xs text-gray-400 dark:text-gray-500">
+								{selectedLang === 'tr' ? 'şehir seçin' : 'pick a city'}
+							</span>
+							<div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+						</div>
+
+						<!-- Country Select -->
+						<div class="mb-3">
+							<label for="wiz-country" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+								{$t.country}
+							</label>
+							<select
+								id="wiz-country"
+								value={selectedCountryData.name}
+								onchange={(e) => handleCountryChange(e.currentTarget.value)}
+								class="input-field"
+							>
+								{#each countries as c}
+									<option value={c.name}>{c.name}</option>
+								{/each}
+							</select>
+						</div>
+
+						<!-- City Search -->
+						<div class="mb-3">
+							<label for="wiz-city-search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+								{$t.city}
+							</label>
+							<input
+								id="wiz-city-search"
+								type="text"
+								bind:value={searchCity}
+								placeholder={selectedLang === 'tr' ? 'Şehir ara...' : 'Search cities...'}
+								class="input-field"
+							/>
+						</div>
+
+						<!-- City Grid -->
+						<div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
+							{#each filteredCities as c}
+								<button
+									onclick={() => pickCity(c.name)}
+									class="p-2.5 text-left rounded-lg border-2 transition-all duration-150 {city === c.name && locationMode === 'manual' ? 'border-primary-500 bg-primary-50 dark:bg-gray-700 text-primary-700 dark:text-primary-300' : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'}"
+								>
+									<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{c.name}</span>
+								</button>
+							{/each}
+						</div>
+
+						<button
+							onclick={() => showManualPicker = false}
+							class="w-full text-center text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-3 transition-colors"
+						>
+							{selectedLang === 'tr' ? '← Geri' : '← Back to GPS/IP'}
+						</button>
+					{/if}
 
 					<!-- Selected Location Display -->
 					{#if locationPicked}
