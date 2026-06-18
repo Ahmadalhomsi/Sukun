@@ -9,7 +9,6 @@ use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
-use tauri_plugin_notification::NotificationExt;
 use tokio::time::sleep;
 
 const PRE_ALERT_WAV: &[u8] = include_bytes!("../../static/Smart_UI_Notification_Stylized_Calm_19_Menu_UI_Indie_Chill.wav");
@@ -293,17 +292,9 @@ impl PrayerScheduler {
     }
 
     async fn send_notification(&self, title: &str, body: &str) -> Result<()> {
-        // Use Tauri notification with sound for Windows toast notification
         println!("Attempting to send notification: {} - {}", title, body);
-        
-        // Build notification with sound to ensure Windows shows it as a toast
-        match self.app_handle
-            .notification()
-            .builder()
-            .title(title)
-            .body(body)
-            .sound("default")
-            .show() {
+        let identifier = self.app_handle.config().identifier.clone();
+        match crate::notification::show_toast(title, body, &identifier, true) {
             Ok(_) => {
                 println!("✅ Notification sent successfully: {} - {}", title, body);
                 Ok(())

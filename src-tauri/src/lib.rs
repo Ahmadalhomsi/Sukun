@@ -4,6 +4,7 @@
 mod api;
 mod audio;
 mod db;
+mod notification;
 mod scheduler;
 
 use crate::db::{Database, PrayerLog, PrayerTime};
@@ -11,7 +12,6 @@ use crate::scheduler::PrayerScheduler;
 use anyhow::Result;
 use auto_launch::AutoLaunch;
 use chrono::Local;
-use tauri_plugin_notification::NotificationExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::sync::Arc;
@@ -192,15 +192,13 @@ fn check_audio_mute_status() -> Result<bool, String> {
 
 #[tauri::command]
 async fn test_notification(app_handle: AppHandle) -> Result<String, String> {
-    app_handle
-        .notification()
-        .builder()
-        .title("Sukun Test Notification")
-        .body("If you see this, notifications are working!")
-        .sound("default")
-        .show()
-        .map_err(|e| e.to_string())?;
-    
+    let identifier = app_handle.config().identifier.clone();
+    notification::show_toast(
+        "Sukun Test Notification",
+        "If you see this, notifications are working!",
+        &identifier,
+        true,
+    )?;
     Ok("Notification sent successfully".to_string())
 }
 
