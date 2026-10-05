@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { getVersion } from '@tauri-apps/api/app';
 	import { currentView } from '$lib/stores';
 	import { t } from '$lib/i18n';
 	import { apiClient } from '$lib/api/client';
@@ -12,6 +13,7 @@
 	let view = $state<'home' | 'settings' | 'logs'>('home');
 	let showWizard = $state(false);
 	let isLoading = $state(true);
+	let appVersion = $state('');
 
 	$effect(() => {
 		const unsubscribe = currentView.subscribe((v) => {
@@ -27,6 +29,9 @@
 
 	onMount(async () => {
 		window.addEventListener('setup-complete', handleSetupComplete);
+		getVersion()
+			.then((v) => (appVersion = v))
+			.catch(() => {});
 		try {
 			const settings = await apiClient.getAllSettings();
 			const setupDone = settings.find((s) => s.key === 'setup_completed');
@@ -127,7 +132,7 @@
 			</div>
 
 			<div class="mt-auto p-6 border-t border-gray-200 dark:border-gray-700">
-				<p class="text-xs text-gray-500 dark:text-gray-400 text-center">v1.0.0</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 text-center">{appVersion ? `v${appVersion}` : ''}</p>
 			</div>
 		</aside>
 
