@@ -21,6 +21,7 @@ struct AlertSettings {
     notifications_enabled: bool,
 	language: String,
 	auto_mute_enabled: bool,
+	unmute_after_minutes: u64,
 }
 
 pub struct PrayerScheduler {
@@ -222,12 +223,19 @@ impl PrayerScheduler {
 
         // Step 1: Mute system audio FIRST
         if settings.auto_mute_enabled {
+            // If the user had already muted, leave it muted afterwards.
+            let was_muted = audio::is_muted().unwrap_or(false);
             if let Err(e) = audio::mute_system_audio() {
                 eprintln!("Failed to mute audio: {}", e);
                 success = false;
                 action = format!("mute_failed: {}", e);
             } else {
                 println!("🔇 Audio muted successfully");
+                if was_muted {
+                    println!("🔈 Audio was already muted, skipping auto-unmute");
+                } else {
+                    self.schedule_auto_unmute(settings.unmute_after_minutes);
+                }
             }
         } else {
             println!("🔇 Auto-mute disabled in settings, skipping mute");
@@ -431,9 +439,18 @@ impl PrayerScheduler {
 			.map(|v| v == "true")
 			.unwrap_or(true);
 
+		// Matches the Settings UI default and its 1-60 range.
+		let unmute_after_minutes = self
+			.db
+			.get_setting("unmute_after_minutes")
+			.await?
+			.and_then(|v| v.parse::<u64>().ok())
+			.unwrap_or(5)
+			.clamp(1, 60);
+
 		println!(
-			"⚙️  Loaded settings: pre_alert_enabled={}, pre_alert_minutes={}, pre_alert_mode={}, notifications_enabled={}, language={}, auto_mute_enabled={}",
-			pre_alert_enabled, pre_alert_minutes, pre_alert_mode, notifications_enabled, language, auto_mute_enabled
+			"⚙️  Loaded settings: pre_alert_enabled={}, pre_alert_minutes={}, pre_alert_mode={}, notifications_enabled={}, language={}, auto_mute_enabled={}, unmute_after_minutes={}",
+			pre_alert_enabled, pre_alert_minutes, pre_alert_mode, notifications_enabled, language, auto_mute_enabled, unmute_after_minutes
 		);
 
 		Ok(AlertSettings {
@@ -443,8 +460,20 @@ impl PrayerScheduler {
 			notifications_enabled,
 			language,
 			auto_mute_enabled,
+			unmute_after_minutes,
 		})
 	}
+
+    fn schedule_auto_unmute(&self, minutes: u64) {
+        println!("🔈 Auto-unmute scheduled in {} minutes", minutes);
+        tokio::spawn(async move {
+            sleep(Duration::from_secs(minutes * 60)).await;
+            match audio::unmute_system_audio() {
+                Ok(_) => println!("🔈 Audio auto-unmuted after {} minutes", minutes),
+                Err(e) => eprintln!("❌ Auto-unmute failed: {}", e),
+            }
+        });
+    }
 
     fn play_adhan_sound(&self) -> Result<()> {
         // Clone the audio data to move into thread
