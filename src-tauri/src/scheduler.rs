@@ -213,8 +213,8 @@ impl PrayerScheduler {
             "⏰ ==========================================="
         );
 
-        let success = true;
-        let action = "mute_audio_play_adhan".to_string();
+        let mut success = true;
+        let mut action = "mute_audio_play_adhan".to_string();
 
         // Load settings to check if notifications are enabled
         let settings = self.load_alert_settings().await?;
@@ -224,6 +224,8 @@ impl PrayerScheduler {
         if settings.auto_mute_enabled {
             if let Err(e) = audio::mute_system_audio() {
                 eprintln!("Failed to mute audio: {}", e);
+                success = false;
+                action = format!("mute_failed: {}", e);
             } else {
                 println!("🔇 Audio muted successfully");
             }
